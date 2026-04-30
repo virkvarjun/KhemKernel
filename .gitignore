@@ -1,0 +1,38 @@
+# Virtual environment
+.venv/
+
+# Data (keep .gitkeep, ignore everything else)
+data/*
+!data/.gitkeep
+
+# Editable install metadata
+*.egg-info/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.py[cod]
+
+# Test cache
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model weights and large data files
+*.npz
+*.parquet
+*.json
+
+# macOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+
+# Logging
+wandb/
+runs/
+tensorboard_logs/
