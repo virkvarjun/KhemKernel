@@ -13,3 +13,9 @@ def tokenize_smiles(s: str) -> list[str]:
     return SMILES_PATTERN.findall(s) 
 
 # This removes the multi-character atoms 
+
+print(tokenize_smiles("CC(=O)Oc1ccccc1C(=O)O"))
+# Expected: ['C', 'C', '(', '=', 'O', ')', 'O', 'c', '1', 'c', 'c', 'c', 'c', 'c', '1', 'C', '(', '=', 'O', ')', 'O']
+
+print(tokenize_smiles("[C@@H]1CC[C@H](Cl)CC1"))
+# Expected: ['[C@@H]', '1', 'C', 'C', '[C@H]', '(', 'Cl', ')', 'C', 'C', '1']
