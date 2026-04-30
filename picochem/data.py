@@ -27,3 +27,8 @@ def tokenize_iupac(s: str) -> list[str]:
     # Split an IUPAC string into tokens that I can use
     return IUPAC_PATTERN.findall(s)
 
+print(tokenize_iupac("2-acetyloxybenzoic acid"))
+# Expected: ['2', '-', 'acetyloxybenzoic', 'acid']
+
+print(tokenize_iupac("(2R,3S)-3-amino-2-hydroxypropanoic acid"))
+# Expected: ['(', '2', 'R', ',', '3', 'S', ')', '-', '3', '-', 'amino', '-', '2', '-', 'hydroxypropanoic', 'acid']
