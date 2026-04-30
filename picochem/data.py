@@ -19,3 +19,11 @@ print(tokenize_smiles("CC(=O)Oc1ccccc1C(=O)O"))
 
 print(tokenize_smiles("[C@@H]1CC[C@H](Cl)CC1"))
 # Expected: ['[C@@H]', '1', 'C', 'C', '[C@H]', '(', 'Cl', ')', 'C', 'C', '1']
+
+# IUPAC tokenization 
+IUPAC_PATTERN = re.compile(r"\d+|[a-zA-Z]+|[\(\)\[\],\-\'\.]") 
+
+def tokenize_iupac(s: str) -> list[str]:
+    # Split an IUPAC string into tokens that I can use
+    return IUPAC_PATTERN.findall(s)
+
