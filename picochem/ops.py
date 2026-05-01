@@ -18,57 +18,67 @@ def linear_backward(grad_y, cache):
 
 # Here, let's work on the GeLU 
 GELU_CONST = np.sqrt(2.0 / np.pi) 
-def gelu_forward(x): 
-    inner = GELU_CONST * (x*0.044715 * x ** 3) 
-    tanh_inner = np.tanh(inner) 
-    y = 0.5 * x * (1 + tanh_inner) 
-    cache = (x, tanh_inner) 
-    return y, cache 
-def gelu_backward(grad_y, cache): 
-    x, tanh_inner = cache 
-    # Derivative of the GeLU with respect to x 
+def gelu_forward(x):
+    inner = GELU_CONST * (x + 0.044715 * x ** 3)
+    tanh_inner = np.tanh(inner)
+    y = 0.5 * x * (1 + tanh_inner)
+    cache = (x, tanh_inner)
+    return y, cache
+def gelu_backward(grad_y, cache):
+    x, tanh_inner = cache
+    # Derivative of the GeLU with respect to x
     sech_sq = 1.0 - tanh_inner ** 2
-    d_inner = GELU_CONST * (1.0+3.0 * 0.04475 * x ** 2) 
-    d_gelu = 0.5 * (1.0 + tanh_inner) + 0.5 * x * sech_sq * d_inner 
-    grad_x = grad_y * d_gelu 
-    return (grad_x,) 
+    d_inner = GELU_CONST * (1.0 + 3.0 * 0.044715 * x ** 2)
+    d_gelu = 0.5 * (1.0 + tanh_inner) + 0.5 * x * sech_sq * d_inner
+    grad_x = grad_y * d_gelu
+    return (grad_x,)
 
-# Softmax and Cross-Entropy 
-def softmax_forward(logits, targets, ignore_index=1): 
-    # Stable Softmax with cross-entropy loss
-    logits_max = logits.max(axis=-1, keepdim=True) 
+# Pure softmax (used by attention)
+def softmax_forward(x):
+    x_max = x.max(axis=-1, keepdims=True)
+    e = np.exp(x - x_max)
+    weights = e / e.sum(axis=-1, keepdims=True)
+    return weights, weights  # cache is the output probabilities
+
+def softmax_backward(grad_out, cache):
+    weights = cache
+    dot = (grad_out * weights).sum(axis=-1, keepdims=True)
+    grad_x = weights * (grad_out - dot)
+    return (grad_x,)
+
+# Softmax + Cross-Entropy loss (used at output projection)
+def softmax_cross_entropy_forward(logits, targets, ignore_index=1):
+    # Stable log-softmax + NLL
+    logits_max = logits.max(axis=-1, keepdims=True)
     log_sum_exp = np.log(np.exp(logits - logits_max).sum(axis=-1, keepdims=True)) + logits_max
-    log_probs = logits - log_sum_exp 
-     
-    # Mask out ignored targets 
-    mask = (targets != ignore_index).astype(np.float64) 
-    n_valid = mask.sum() 
-    if n_valid == 0: 
-        n_valid = 1.0 # Avoid division by zero
-    
-    # NLL of the correct class for each example
+    log_probs = logits - log_sum_exp
+
+    mask = (targets != ignore_index).astype(np.float64)
+    n_valid = mask.sum()
+    if n_valid == 0:
+        n_valid = 1.0
+
     batch_idx = np.arange(len(targets))
     safe_targets = np.where(targets == ignore_index, 0, targets)
     nll = -log_probs[batch_idx, safe_targets]
-    
+
     loss = (nll * mask).sum() / n_valid
-    
+
     cache = (log_probs, targets, mask, n_valid, ignore_index)
     return loss, cache
 
-def softmax_backward(grad_loss, cache): 
+def softmax_cross_entropy_backward(grad_loss, cache):
     log_probs, targets, mask, n_valid, ignore_index = cache
-    probs = np.exp(log_probs) 
-    grad_logits = probs.copy() 
-    batch_idx = np.arange(len(targets)) 
-    safe_targets = np.where(targets == ignore_index, 0, targets) 
-    grad_logits[batch_idx, safe_targets] -= 1.0 
+    probs = np.exp(log_probs)
+    grad_logits = probs.copy()
+    batch_idx = np.arange(len(targets))
+    safe_targets = np.where(targets == ignore_index, 0, targets)
+    grad_logits[batch_idx, safe_targets] -= 1.0
 
-    # apply mask and normalize 
-    grad_logits = grad_logits * mask[:, None] / n_valid 
-    grad_logits = grad_logits + grad_loss # propagate scalar loss gradient
+    grad_logits = grad_logits * mask[:, None] / n_valid
+    grad_logits = grad_logits * grad_loss  # chain rule: scale by upstream scalar
 
-    return (grad_logits, None) # no gradient wrt integer targets
+    return (grad_logits, None)  # no gradient w.r.t. integer targets
 
 # Layer Normalization 
 def layer_norm_forward(x, gamma, beta, eps=1e-5): 
