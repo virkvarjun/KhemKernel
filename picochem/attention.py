@@ -82,5 +82,23 @@ def multihead_self_attention_forward(x, W_q, W_k, W_v, W_o, b_q, b_k, b_v, b_o,
     return out, cache 
 
 def multihead_self_attention_backwards(grad_out, cache): 
+    B, S, D, H, Dh, x_shape, q_cache, k_cache, v_cache, attn_cache, o_cache, concat_shape = cache
+    # Backward through output projection 
+    grad_concat_flat, grad_W_o, grad_b_o = linear_backward(grad_out.reshape(B*S, D), o_cache) 
+    grad_concat = grad_concat_flat.reshape(concat_shape) 
+    grad_Q_heads, grad_K, heads, grad_V_heads = scaled_dot_product_attention_backward(grad_attn_out, attn_cache) 
+    # grad_*_heads: (B, H, S, Dh)
+    # Reshape: (B, H, S, Dh) → (B, S, H, Dh) → (B*S, D)
+    grad_Q_flat = grad_Q_heads.transpose(0, 2, 1, 3).reshape(B * S, D)
+    grad_K_flat = grad_K_heads.transpose(0, 2, 1, 3).reshape(B * S, D)
+    grad_V_flat = grad_V_heads.transpose(0, 2, 1, 3).reshape(B * S, D)
     
-
+    # Backward through QKV projections
+    grad_x_q, grad_W_q, grad_b_q = linear_backward(grad_Q_flat, q_cache)
+    grad_x_k, grad_W_k, grad_b_k = linear_backward(grad_K_flat, k_cache)
+    grad_x_v, grad_W_v, grad_b_v = linear_backward(grad_V_flat, v_cache)
+    
+    # Three contributions to grad_x (Q, K, V all came from the same x)
+    grad_x = (grad_x_q + grad_x_k + grad_x_v).reshape(x_shape)
+    
+    return grad_x, grad_W_q, grad_W_k, grad_W_v, grad_W_o, grad_b_q, grad_b_k, grad_b_v, grad_b_o
