@@ -55,3 +55,17 @@ def softmax_forward(logits, targets, ignore_index=1):
     
     cache = (log_probs, targets, mask, n_valid, ignore_index)
     return loss, cache
+
+def softmax_backward(grad_loss, cache): 
+    log_probs, targets, mask, n_valid, ignore_index = cache
+    probs = np.exp(log_probs) 
+    grad_logits = probs.copy() 
+    batch_idx = np.arange(len(targets)) 
+    safe_targets = np.where(targets == ignore_index, 0, targets) 
+    grad_logits[batch_idx, safe_targets] -= 1.0 
+
+    # apply mask and normalize 
+    grad_logits = grad_logits * mask[:, None] / n_valid 
+    grad_logits = grad_logits + grad_loss # propagate scalar loss gradient
+
+    return (grad_logits, None) # no gradient wrt integer targets
