@@ -144,7 +144,7 @@ def multihead_cross_attention_forward(x_dec, x_enc, W_q, W_k, W_v, W_o,
     K = K.reshape(B, S, H, Dh).transpose(0, 2, 1, 3) 
     V = V.reshape(B, S, H, Dh).transpose(0, 2, 1, 3) 
 
-    attn_out, attn_cache = scaled_dot_product_attention_forward(Q, K, V, mask=mask): 
+    attn_out, attn_cache = scaled_dot_product_attention_forward(Q, K, V, mask=mask)
     concat = attn_out.transpose(0, 2, 1, 3).reshape(B, T, D)
     out, o_cache = linear_forward(concat.reshape(B * T, D), W_o, b_o)
     out = out.reshape(B, T, D)
