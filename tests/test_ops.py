@@ -60,11 +60,19 @@ sys.path.insert(0, ".")  # so we can import picochem
 
 from picochem.ops import linear_forward, linear_backward
 
-
 def test_linear_gradient():
     rng = np.random.default_rng(0)
     x = rng.standard_normal((4, 5)).astype(np.float64)
     W = rng.standard_normal((5, 3)).astype(np.float64)
     b = rng.standard_normal((3,)).astype(np.float64)
     
-    check_gradient(linear_forward, linear_backward, [x, W, b])
+    check_gradient(linear_forward, linear_backward, [x, W, b]) 
+
+from picochem.ops import gelu_forward, gelu_backward
+
+
+def test_gelu_gradient():
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((4, 5)).astype(np.float64)
+    
+    check_gradient(gelu_forward, gelu_backward, [x])
