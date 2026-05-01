@@ -39,3 +39,32 @@ Disk size: 54.2 MB
 ```
 
 ~1.4M rows streamed to collect 1M after filtering (no mixtures, SMILES ≤ 100 chars, IUPAC ≤ 100 chars). Output saved to `data/raw_pairs.parquet` (gitignored).
+
+## Tokenizers
+
+Build SMILES and IUPAC vocabularies from the downloaded data:
+
+```bash
+python scripts/build_vocab.py
+```
+
+```
+['C', 'C', '(', '=', 'O', ')', 'O', 'c', '1', 'c', 'c', 'c', 'c', 'c', '1', 'C', '(', '=', 'O', ')', 'O']
+['[C@@H]', '1', 'C', 'C', '[C@H]', '(', 'Cl', ')', 'C', 'C', '1']
+['2', '-', 'acetyloxybenzoic', 'acid']
+['(', '2', 'R', ',', '3', 'S', ')', '-', '3', '-', 'amino', '-', '2', '-', 'hydroxypropanoic', 'acid']
+Loading data/raw_pairs.parquet
+Loaded 1,000,000 pairs
+
+Tokenizing SMILES
+100%|████████████████████| 1000000/1000000 [00:04<00:00, 234894.07it/s]
+Tokenizing IUPAC names...
+100%|████████████████████| 1000000/1000000 [00:03<00:00, 273935.22it/s]
+
+SMILES vocab size: 341
+IUPAC vocab size: 11891
+
+Vocabularies saved to data/smiles_vocab.json and data/iupac_vocab.json
+```
+
+SMILES uses the Schwaller et al. regex tokenizer (handles multi-char atoms like `[C@@H]`, `Cl`, `Br`). IUPAC is split on word boundaries, digits, and punctuation. Rare IUPAC tokens (< 5 occurrences) map to `<unk>`. Vocab files saved to `data/` (gitignored).
