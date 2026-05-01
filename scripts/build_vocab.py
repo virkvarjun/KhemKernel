@@ -32,12 +32,12 @@ def build_vocab(token_lists, min_freq=1) -> dict[str, int]: # Build a token-to-i
 
 def main(): 
     print(f"Loading {INPUT_PATH}") 
-    df = pd.read_parquet{INPUT_PATH} 
+    df = pd.read_parquet(INPUT_PATH) 
     print(f"Loaded {len(df):,} pairs") 
     print("\nTokenizing SMILES") 
-    smiles_tokens = [tokenize_smiles(s) for s in tqdm(df["smiles"])] 
+    smiles_tokens = [tokenize_smiles(s) for s in tqdm(df["SMILES"])]
     print("Tokenizing IUPAC names...")
-    iupac_tokens = [tokenize_iupac(s) for s in tqdm(df["iupac"])]
+    iupac_tokens = [tokenize_iupac(s) for s in tqdm(df["IUPAC"])]
 
     smiles_vocab= build_vocab(smiles_tokens, min_freq=1)
     iupac_vocab = build_vocab(iupac_tokens, min_freq=IUPAC_MIN_FREQ)
@@ -45,7 +45,7 @@ def main():
     print(f"\nSMILES vocab size: {len(smiles_vocab)}")
     print(f"IUPAC vocab size: {len(iupac_vocab)}")
 
-    os.makdeirs(os.path.dirname(SMILES_VOCAB_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(SMILES_VOCAB_PATH), exist_ok=True)
     with open(SMILES_VOCAB_PATH, "w") as f: 
         json.dump(smiles_vocab, f, indent=2) 
     with open(IUPAC_VOCAB_PATH, "w") as f: 
