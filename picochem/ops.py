@@ -69,3 +69,33 @@ def softmax_backward(grad_loss, cache):
     grad_logits = grad_logits + grad_loss # propagate scalar loss gradient
 
     return (grad_logits, None) # no gradient wrt integer targets
+
+# Layer Normalization 
+def layer_norm_forward(x, gamma, beta, eps=1e-5): 
+    mean = x.mean(axis=-1, keepdims=True) 
+    var = x.var(axis=-1, keepdims=True) 
+    inv_std = 1.0 / np.sqrt(var + eps) 
+    x_hat = (x - mean) * inv_std 
+    y = gamma * x_hat + beta 
+    cache = (x_hat, gamma, inv_std) 
+    return y, cache 
+def layer_norm_backward(grad_y, cache):
+    x_hat, gamma, inv_std = cache
+    N = x_hat.shape[-1]
+    
+    # Gradient w.r.t. learned parameters (sum over all batch dims)
+    reduce_axes = tuple(range(grad_y.ndim - 1))
+    grad_gamma = (grad_y * x_hat).sum(axis=reduce_axes)
+    grad_beta = grad_y.sum(axis=reduce_axes)
+    
+    # Gradient w.r.t. input
+    dxhat = grad_y * gamma
+    grad_x = (1.0 / N) * inv_std * (
+        N * dxhat
+        - dxhat.sum(axis=-1, keepdims=True)
+        - x_hat * (dxhat * x_hat).sum(axis=-1, keepdims=True)
+    )
+    
+    return grad_x, grad_gamma, grad_beta
+
+
