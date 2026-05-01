@@ -59,3 +59,15 @@ All forward and backward passes are implemented from scratch in NumPy. Each op r
 | GeLU | tanh approximation (Hendrycks & Gimpel) | analytic derivative via chain rule |
 | Softmax + cross-entropy | numerically stable log-softmax; masks `<pad>` tokens via `ignore_index` | gradient w.r.t. logits only; integer targets have no gradient |
 | Layer norm | normalizes over last axis; learnable `γ`, `β` | full Bessel-corrected backward; reduces `grad_γ`, `grad_β` over batch dims |
+
+## Attention (`picochem/attention.py`)
+
+Three attention primitives, all gradient-checked against finite differences.
+
+| Function | Description |
+|---|---|
+| `scaled_dot_product_attention_forward/backward` | Core `QKᵀ/√Dh` attention; supports additive mask (causal or padding) |
+| `multihead_self_attention_forward/backward` | Full MHA: Q/K/V projections → split heads → SDPA → concat → output projection; Q, K, V all come from the same input `x` |
+| `multihead_cross_attention_forward/backward` | Cross-attention: Q from decoder `x_dec`, K/V from encoder `x_enc`; gradients flow back to both sequences independently |
+
+All three ops use the same shape convention: `(B, H, S, Dh)` inside the attention kernel, with head-split and head-merge transposes handled in the multihead wrappers. Caches store only what is needed for the backward pass (no redundant copies).
