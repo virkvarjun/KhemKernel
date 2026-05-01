@@ -53,3 +53,13 @@ def encode_iupac(s: str, vocab: dict[str, int]) -> np.ndarray:
     ids.extend(vocab.get(tok, unk) for tok in tokenize_iupac(s)) 
     ids.append(vocab["<end>"])
     return np.array(ids, dtype=np.int32) 
+
+def decode_smiles(ids: np.ndarray, vocab: dict[int, str]) -> str:
+    # Convert integer IDs back to a SMILES string 
+    return "".join(vocab.get(idx, "<unk>") for idx in ids)
+
+def decode_iupac(ids: np.ndarray, vocab: dict[int, str]) -> str:
+    # Convert integer IDs back to an IUPAC name, removing special tokens 
+    tokens = [vocab.get(idx, "<unk>") for idx in ids if idx in vocab]
+    tokens = [t for t in tokens if t not in ("<start>", "<end>", "<pad>")]
+    return "".join(tokens)
