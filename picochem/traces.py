@@ -98,16 +98,3 @@ def build_trace(smiles: str, iupac: str) -> str | None:
     )
     return trace
 
-from picochem.traces import build_trace
-
-# Aspirin
-print(build_trace("CC(=O)Oc1ccccc1C(=O)O", "2-acetyloxybenzoic acid"))
-
-# Caffeine
-print(build_trace("Cn1cnc2c1c(=O)n(C)c(=O)n2C", "1,3,7-trimethylpurine-2,6-dione"))
-
-# Glucose
-print(build_trace("OCC1OC(O)C(O)C(O)C1O", "(2R,3S,4R,5R,6R)-6-(hydroxymethyl)oxane-2,3,4,5-tetrol"))
-
-# Ethanol
-print(build_trace("CCO", "ethanol"))

@@ -25,7 +25,7 @@ def main():
     skipped = 0
     
     for _, row in tqdm(df.iterrows(), total=len(df), desc="Building traces"):
-        trace = build_trace(row["smiles"], row["iupac"])
+        trace = build_trace(row["SMILES"], row["IUPAC"])
         if trace is None:
             skipped += 1
             continue
