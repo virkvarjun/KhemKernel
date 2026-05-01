@@ -32,3 +32,26 @@ def gelu_backward(grad_y, cache):
     d_gelu = 0.5 * (1.0 + tanh_inner) + 0.5 * x * sech_sq * d_inner 
     grad_x = grad_y * d_gelu 
     return (grad_x,) 
+
+# Softmax and Cross-Entropy 
+def softmax_forward(logits, targets, ignore_index=1): 
+    # Stable Softmax with cross-entropy loss
+    logits_max = logits.max(axis=-1, keepdim=True) 
+    log_sum_exp = np.log(np.exp(logits - logits_max).sum(axis=-1, keepdims=True)) + logits_max
+    log_probs = logits - log_sum_exp 
+     
+    # Mask out ignored targets 
+    mask = (targets != ignore_index).astype(np.float64) 
+    n_valid = mask.sum() 
+    if n_valid == 0: 
+        n_valid = 1.0 # Avoid division by zero
+    
+    # NLL of the correct class for each example
+    batch_idx = np.arange(len(targets))
+    safe_targets = np.where(targets == ignore_index, 0, targets)
+    nll = -log_probs[batch_idx, safe_targets]
+    
+    loss = (nll * mask).sum() / n_valid
+    
+    cache = (log_probs, targets, mask, n_valid, ignore_index)
+    return loss, cache
