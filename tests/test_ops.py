@@ -76,3 +76,21 @@ def test_gelu_gradient():
     x = rng.standard_normal((4, 5)).astype(np.float64)
     
     check_gradient(gelu_forward, gelu_backward, [x])
+
+from picochem.ops import softmax_cross_entropy_forward, softmax_cross_entropy_backward
+
+
+def test_cross_entropy_gradient():
+    rng = np.random.default_rng(0)
+    logits = rng.standard_normal((4, 7)).astype(np.float64)
+    targets = rng.integers(0, 7, size=(4,))
+    
+    # Wrap so check_gradient sees only logits as the float input
+    def fwd(x):
+        return softmax_cross_entropy_forward(x, targets)
+    
+    def bwd(grad, cache):
+        result = softmax_cross_entropy_backward(grad, cache)
+        return (result[0],)  # only logits gradient
+    
+    check_gradient(fwd, bwd, [logits])
