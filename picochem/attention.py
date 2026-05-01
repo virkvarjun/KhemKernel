@@ -42,9 +42,9 @@ def scaled_dot_product_attention_backward(grad_out, cache):
     return grad_Q, grad_K, grad_V
 
 def multihead_self_attention_forward(x, W_q, W_k, W_v, W_o, b_q, b_k, b_v, b_o,
-                                      n_heads, mask=None):
+                                     n_heads, mask=None):
     """Multi-head self-attention forward pass.
-    
+
     Args:
         x: (B, S, D) input sequence
         W_q, W_k, W_v: (D, D) projection matrices for Q, K, V
@@ -52,7 +52,7 @@ def multihead_self_attention_forward(x, W_q, W_k, W_v, W_o, b_q, b_k, b_v, b_o,
         b_q, b_k, b_v, b_o: (D,) bias vectors
         n_heads: number of attention heads
         mask: optional additive mask, shape broadcastable to (B, n_heads, S, S)
-    
+
     Returns:
         out: (B, S, D)
         cache: values needed for backward
@@ -60,45 +60,54 @@ def multihead_self_attention_forward(x, W_q, W_k, W_v, W_o, b_q, b_k, b_v, b_o,
     B, S, D = x.shape
     H = n_heads
     Dh = D // H
-    
-    # Project to Q, K, V
-    Q, q_cache = linear_forward(x.reshape(B * S, D), W_q, b_q)  # (B*S, D)
+
+    # Project to Q, K, V: (B*S, D)
+    Q, q_cache = linear_forward(x.reshape(B * S, D), W_q, b_q)
     K, k_cache = linear_forward(x.reshape(B * S, D), W_k, b_k)
     V, v_cache = linear_forward(x.reshape(B * S, D), W_v, b_v)
-    
-    # Reshape and Split heads: (B*S, D) → (B, S, H, Dh) → (B, H, S, Dh)
+
+    # Split heads: (B*S, D) → (B, S, H, Dh) → (B, H, S, Dh)
     Q = Q.reshape(B, S, H, Dh).transpose(0, 2, 1, 3)
     K = K.reshape(B, S, H, Dh).transpose(0, 2, 1, 3)
     V = V.reshape(B, S, H, Dh).transpose(0, 2, 1, 3)
-    
-    # Attention 
+
+    # Scaled dot-product attention
     attn_out, attn_cache = scaled_dot_product_attention_forward(Q, K, V, mask=mask)
 
-    # Cancatenate heads: (B, H, S, Dh) → (B, S, H, Dh) → (B, S, D)
-    concat = attn_out.transpose(0, 2, 1, 3).reshape(B, S, D) 
+    # Concatenate heads: (B, H, S, Dh) → (B, S, H, Dh) → (B, S, D)
+    concat = attn_out.transpose(0, 2, 1, 3).reshape(B, S, D)
 
-    # Output Projection
-    out, o_cache = linear_forward(concat.reshape(B*S, D), W_o, b_o) 
-    return out, cache 
+    # Output projection
+    out, o_cache = linear_forward(concat.reshape(B * S, D), W_o, b_o)
+    out = out.reshape(B, S, D)
 
-def multihead_self_attention_backwards(grad_out, cache): 
-    B, S, D, H, Dh, x_shape, q_cache, k_cache, v_cache, attn_cache, o_cache, concat_shape = cache
-    # Backward through output projection 
-    grad_concat_flat, grad_W_o, grad_b_o = linear_backward(grad_out.reshape(B*S, D), o_cache) 
-    grad_concat = grad_concat_flat.reshape(concat_shape) 
-    grad_Q_heads, grad_K, heads, grad_V_heads = scaled_dot_product_attention_backward(grad_attn_out, attn_cache) 
-    # grad_*_heads: (B, H, S, Dh)
-    # Reshape: (B, H, S, Dh) → (B, S, H, Dh) → (B*S, D)
+    cache = (B, S, D, H, Dh, x.shape, q_cache, k_cache, v_cache, attn_cache, o_cache)
+    return out, cache
+
+
+def multihead_self_attention_backward(grad_out, cache):
+    B, S, D, H, Dh, x_shape, q_cache, k_cache, v_cache, attn_cache, o_cache = cache
+
+    # Backward through output projection
+    grad_concat_flat, grad_W_o, grad_b_o = linear_backward(grad_out.reshape(B * S, D), o_cache)
+
+    # Reverse concatenate-heads: (B*S, D) → (B, S, H, Dh) → (B, H, S, Dh)
+    grad_attn_out = grad_concat_flat.reshape(B, S, H, Dh).transpose(0, 2, 1, 3)
+
+    # Backward through scaled dot-product attention
+    grad_Q_heads, grad_K_heads, grad_V_heads = scaled_dot_product_attention_backward(grad_attn_out, attn_cache)
+
+    # Reverse split-heads: (B, H, S, Dh) → (B, S, H, Dh) → (B*S, D)
     grad_Q_flat = grad_Q_heads.transpose(0, 2, 1, 3).reshape(B * S, D)
     grad_K_flat = grad_K_heads.transpose(0, 2, 1, 3).reshape(B * S, D)
     grad_V_flat = grad_V_heads.transpose(0, 2, 1, 3).reshape(B * S, D)
-    
+
     # Backward through QKV projections
     grad_x_q, grad_W_q, grad_b_q = linear_backward(grad_Q_flat, q_cache)
     grad_x_k, grad_W_k, grad_b_k = linear_backward(grad_K_flat, k_cache)
     grad_x_v, grad_W_v, grad_b_v = linear_backward(grad_V_flat, v_cache)
-    
-    # Three contributions to grad_x (Q, K, V all came from the same x)
+
+    # Sum contributions to grad_x (Q, K, V all projected from the same x)
     grad_x = (grad_x_q + grad_x_k + grad_x_v).reshape(x_shape)
-    
+
     return grad_x, grad_W_q, grad_W_k, grad_W_v, grad_W_o, grad_b_q, grad_b_k, grad_b_v, grad_b_o
