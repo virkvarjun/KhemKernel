@@ -48,3 +48,14 @@ Vocabularies saved to data/smiles_vocab.json and data/iupac_vocab.json
 ```
 
 SMILES uses the Schwaller et al. regex tokenizer (handles multi-char atoms like `[C@@H]`, `Cl`, `Br`). IUPAC is split on word boundaries, digits, and punctuation. Rare IUPAC tokens (< 5 occurrences) map to `<unk>`.
+
+## Ops (`picochem/ops.py`)
+
+All forward and backward passes are implemented from scratch in NumPy. Each op returns a cache for the backward pass; gradients are verified against finite differences via pytest.
+
+| Op | Forward | Backward |
+|---|---|---|
+| Linear | `y = xW + b` | gradients w.r.t. `x`, `W`, `b` |
+| GeLU | tanh approximation (Hendrycks & Gimpel) | analytic derivative via chain rule |
+| Softmax + cross-entropy | numerically stable log-softmax; masks `<pad>` tokens via `ignore_index` | gradient w.r.t. logits only; integer targets have no gradient |
+| Layer norm | normalizes over last axis; learnable `γ`, `β` | full Bessel-corrected backward; reduces `grad_γ`, `grad_β` over batch dims |
