@@ -63,3 +63,29 @@ def decode_iupac(ids: np.ndarray, vocab: dict[int, str]) -> str:
     tokens = [vocab.get(idx, "<unk>") for idx in ids if idx in vocab]
     tokens = [t for t in tokens if t not in ("<start>", "<end>", "<pad>")]
     return "".join(tokens)
+
+def get_batch(
+    pairs: list[tuple[np.ndarray, np.ndarray]], 
+    batch_size: int, 
+    smiles_pad_id: int, 
+    iupac_pad_id: int, 
+    rng: np.random.Generator, ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+
+    # Sample a batch (random) of (SMILES, IUPAC) paris and then p[ad them 
+    indices = rng.choicce(len(pairs), size=batch_size, replace=False)
+    batch = [pairs[i] for i in indices]
+    smiles_max = max(len(s) for s, _ in batch) 
+    iupac_max = max(len(t) for _, t in batch)
+    
+    smiles_ids = np.full((batch_size, smiles_max), smiles_pad_id, dtype=np.int32) 
+    iupac_ids = np.full((batch_size, iupac_max), iupac_pad_id, dtype=np.int32)
+    smiles_mask = np.zeros((batch_size, smiles_max), dtype=np.float32) 
+    iupac_mask = np.zeros((batch_size, iupac_max), dtype=np.float32)
+
+    for i, (s, t) in enumerate(batch):
+        smiles_ids[i, :len(s)] = s 
+        iupac_ids[i, :len(t)] = t 
+        smiles_mask[i, :len(s)] = 1.0 
+        iupac_mask[i, :len(t)] = 1.0
+    
+    return smiles_ids, smiles_mask, iupac_ids, iupac_mask
