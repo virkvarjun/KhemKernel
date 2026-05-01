@@ -32,6 +32,10 @@ __pycache__/
 .vscode/
 .idea/
 
+# Experiment results
+results/*
+!results/.gitkeep
+
 # Logging
 wandb/
 runs/
