@@ -42,3 +42,33 @@ def test_scaled_dot_product_attention_causal_mask():
         return scaled_dot_product_attention_forward(q, k, v, mask=causal)
     
     check_gradient(fwd, scaled_dot_product_attention_backward, [Q, K, V])
+
+from picochem.attention import (
+    multihead_self_attention_forward,
+    multihead_self_attention_backward,
+)
+
+
+def test_multihead_self_attention():
+    rng = np.random.default_rng(2)
+    B, S, D, H = 2, 4, 8, 2  # D must be divisible by H
+    
+    x = rng.standard_normal((B, S, D)).astype(np.float64)
+    W_q = rng.standard_normal((D, D)).astype(np.float64) * 0.1
+    W_k = rng.standard_normal((D, D)).astype(np.float64) * 0.1
+    W_v = rng.standard_normal((D, D)).astype(np.float64) * 0.1
+    W_o = rng.standard_normal((D, D)).astype(np.float64) * 0.1
+    b_q = rng.standard_normal((D,)).astype(np.float64) * 0.01
+    b_k = rng.standard_normal((D,)).astype(np.float64) * 0.01
+    b_v = rng.standard_normal((D,)).astype(np.float64) * 0.01
+    b_o = rng.standard_normal((D,)).astype(np.float64) * 0.01
+    
+    def fwd(x, Wq, Wk, Wv, Wo, bq, bk, bv, bo):
+        return multihead_self_attention_forward(
+            x, Wq, Wk, Wv, Wo, bq, bk, bv, bo, n_heads=H,
+        )
+    
+    check_gradient(
+        fwd, multihead_self_attention_backward,
+        [x, W_q, W_k, W_v, W_o, b_q, b_k, b_v, b_o],
+    )
