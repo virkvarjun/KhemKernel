@@ -40,9 +40,9 @@ def encoder_block_forward(x, params, n_heads, padding_mask=None):
 
 def encoder_block_backward(grad_out, cache): 
     #   Sub layer 2: FFN 
-    grad_fffn_out = grad_out
-    grad_x1_residual = grad_out 
-    grad_x_norm2, grad_W1, grad_b1, grad_W2, grad_b2 = ffn_backward(grad_ffn_out, cache['ffn']) 
+    grad_ffn_out = grad_out
+    grad_x1_residual = grad_out
+    grad_x_norm2, grad_W1, grad_b1, grad_W2, grad_b2 = ffn_backward(grad_ffn_out, cache['ffn'])
     grad_x1_ffn, grad_ln2_gamma, grad_ln2_beta = layer_norm_backward(grad_x_norm2, cache['ln2']) 
     grad_x1 = grad_x1_residual + grad_x1_ffn 
 

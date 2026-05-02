@@ -21,7 +21,7 @@ def ffn_backward(grad_out, cache):
     B, S, D, l1_cache, gelu_cache, l2_cache = cache 
     grad_out_flat = grad_out.reshape(B*S, D) 
     grad_a, grad_W2, grad_b2 = linear_backward(grad_out_flat, l2_cache) 
-    grad_h = gelu_backward(grad_a, gelu_cache) 
+    grad_h, = gelu_backward(grad_a, gelu_cache)
     grad_x_flat, grad_W1, grad_b1 = linear_backward(grad_h, l1_cache) 
 
     grad_x = grad_x_flat.reshape(B, S, D) 
