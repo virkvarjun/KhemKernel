@@ -233,7 +233,7 @@ def greedy_decode(src_ids, src_mask, params, config,
     output = [start_token]
     for _ in range(max_length - 1): 
         # Current decoder input (1, T) 
-        tgt_ids = np.array([output], dtype=int32) 
+        tgt_ids = np.array([output], dtype=np.int32)
         tgt_mask = np.ones_like(tgt_ids, dtype=np.float64) 
         # Forward pass - only the last pos logits 
         logits, _ = model_forward(src_ids, tgt_ids, src_mask, tgt_mask, params, config)
