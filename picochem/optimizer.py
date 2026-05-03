@@ -1,7 +1,7 @@
 """Adam optimizer with weight decay and optional learning-rate schedule."""
 import numpy as np 
 
-def init_adam(params): 
+def init_adam_state(params):
     """Create m and v state mirroring the params structure."""
     if isinstance(params, np.ndarray):
         return {'m': np.zeros_like(params), 'v': np.zeros_like(params)}
@@ -21,10 +21,10 @@ def adam_step(params, grads, state, step, lr=1e-3, beta1=0.9, beta2=0.999, eps=1
         v_hat = s['v'] / (1 - beta2 ** step)
         params -= lr * m_hat / (np.sqrt(v_hat) + eps)
         return params 
-    if isinstance(params, dict): 
-        for key in params: 
+    if isinstance(params, dict):
+        for key in params:
             params[key] = adam_step(params[key], grads[key], state[key], step, lr, beta1, beta2, eps)
-            return params 
+        return params
     if isinstance(params, list):
         for i in range(len(params)):
             params[i] = adam_step(params[i], grads[i], state[i], step,
