@@ -40,7 +40,7 @@ int main (){
     // Copy result back to the host 
     CUDA_CHECK(cudaMemcpy(h_c.data(), d_c, bytes, cudaMemcpyDeviceToHost)); 
 
-     float max_err = 0.0f;
+    float max_err = 0.0f;
     for (int i = 0; i < N; ++i) {
         max_err = std::max(max_err, std::abs(h_c[i] - h_expected[i]));
     }
