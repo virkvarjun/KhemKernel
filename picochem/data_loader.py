@@ -49,6 +49,31 @@ def load_dataset(parquet_path, smiles_vocab, iupac_vocab, max_src_len, max_tgt_l
     return pairs
 
 
+def split_dataset(pairs, val_fraction=0.05, seed=0):
+    """Split pairs into (train, val) with a fixed seed for reproducibility.
+
+    Parameters
+    ----------
+    pairs : list
+        Full dataset as returned by :func:`load_dataset`.
+    val_fraction : float
+        Fraction of pairs to hold out for validation.
+    seed : int
+        RNG seed — same seed always produces the same split.
+
+    Returns
+    -------
+    train_pairs : list
+    val_pairs : list
+    """
+    rng = np.random.default_rng(seed)
+    n_val = max(1, int(len(pairs) * val_fraction))
+    idx = rng.permutation(len(pairs))
+    val_pairs   = [pairs[i] for i in idx[:n_val]]
+    train_pairs = [pairs[i] for i in idx[n_val:]]
+    return train_pairs, val_pairs
+
+
 def make_batch(pairs, batch_size, src_pad_id, tgt_pad_id, rng):
     """Sample and pad a batch of (src, tgt) pairs for teacher-forced training.
 

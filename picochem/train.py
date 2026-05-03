@@ -43,3 +43,35 @@ def train_step(src_ids, tgt_in, tgt_out, src_mask, tgt_mask,
     adam_step(params, grads, state, step, lr=lr)
 
     return loss, grad_norm
+
+
+def compute_val_loss(val_pairs, params, config, batch_size, src_pad, tgt_pad, n_batches=20):
+    """Estimate validation loss without updating params or optimizer state.
+
+    Parameters
+    ----------
+    val_pairs : list of (src_ids, tgt_ids)
+    params : dict
+    config : dict
+    batch_size : int
+    src_pad : int
+    tgt_pad : int
+    n_batches : int
+        Number of random batches to average over.
+
+    Returns
+    -------
+    float : mean cross-entropy loss across the sampled batches
+    """
+    from picochem.data_loader import make_batch
+    rng = np.random.default_rng(0)   # fixed seed → deterministic estimate
+    n = min(n_batches, max(1, len(val_pairs) // max(1, batch_size)))
+    total = 0.0
+    for _ in range(n):
+        src_ids, tgt_in, tgt_out, src_mask, tgt_mask = make_batch(
+            val_pairs, batch_size, src_pad, tgt_pad, rng
+        )
+        logits, _ = model_forward(src_ids, tgt_in, src_mask, tgt_mask, params, config)
+        loss, _ = compute_loss(logits, tgt_out, ignore_index=-1)
+        total += float(loss)
+    return total / n
