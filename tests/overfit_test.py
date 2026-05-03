@@ -42,11 +42,11 @@ def main():
     print(f"Initial loss should be ~log({config['tgt_vocab']}) = {np.log(config['tgt_vocab']):.2f}")
     print(f"Target loss: < 0.1\n")
 
-    n_steps = 500
+    n_steps = 1500
     for step in range(1, n_steps + 1):
         loss, grad_norm = train_step(
             *batch, params=params, state=state, step=step, config=config,
-            lr=3e-4, max_grad_norm=1.0,
+            lr=1e-4, max_grad_norm=10.0,
         )
 
         if step == 1 or step % 25 == 0:
