@@ -224,3 +224,25 @@ def model_backward(grad_logits, cache, params, config):
     grads['src_pos_embed'] = grad_src_pos_embed
 
     return grads
+
+# Greedy Decoder
+def greedy_decode(src_ids, src_mask, params, config,
+                  start_token, end_token, pad_token,
+                  max_length=200):
+    # Algorithm: 
+    output = [start_token]
+    for _ in range(max_length - 1): 
+        # Current decoder input (1, T) 
+        tgt_ids = np.array([output], dtype=int32) 
+        tgt_mask = np.ones_like(tgt_ids, dtype=np.float64) 
+        # Forward pass - only the last pos logits 
+        logits, _ = model_forward(src_ids, tgt_ids, src_mask, tgt_mask, params, config)
+        next_logits = logits[0, -1] 
+
+        # Greedy: pick argmax
+        next_token = int(np.argmax(next_logits)) 
+        output.append(next_token) 
+
+        if next_token == end_token: 
+            break 
+    return output

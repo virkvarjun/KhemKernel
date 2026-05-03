@@ -22,8 +22,15 @@ print(tokenize_smiles("CC(=O)Oc1ccccc1C(=O)O"))
 print(tokenize_smiles("[C@@H]1CC[C@H](Cl)CC1"))
 # Expected: ['[C@@H]', '1', 'C', 'C', '[C@H]', '(', 'Cl', ')', 'C', 'C', '1']
 
-# IUPAC tokenization 
-IUPAC_PATTERN = re.compile(r"\d+|[a-zA-Z]+|[\(\)\[\],\-\'\.]") 
+# IUPAC tokenization.
+# The pattern also recognises trace XML tags (<parent>, </groups>, etc.) as
+# single tokens, and the semicolon used as group separator in traces.
+IUPAC_PATTERN = re.compile(
+    r"</?(?:parent|groups|atoms|rings|name)>"  # trace structure tags
+    r"|\d+"                                     # numbers
+    r"|[a-zA-Z_]+"                             # words + underscores (group names like carboxylic_acid)
+    r"|[;\(\)\[\],\-\'\.]"                     # punctuation including trace separator ;
+)
 
 def tokenize_iupac(s: str) -> list[str]:
     # Split an IUPAC string into tokens that I can use
