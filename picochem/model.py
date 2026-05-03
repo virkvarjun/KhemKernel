@@ -140,3 +140,102 @@ def model_forward(src_ids, tgt_ids, src_mask, tgt_mask, params, config):
         'B': B, 'S': S, 'T': T,
     }
     return logits, cache
+
+from picochem.embeddings import (
+    token_embedding_backward, positional_embedding_backward,
+)
+from picochem.encoder import encoder_block_backward
+from picochem.decoder import decoder_block_backward
+from picochem.ops import layer_norm_backward, softmax_cross_entropy_forward, softmax_cross_entropy_backward
+
+
+def compute_loss(logits, targets, ignore_index=-1):
+    B, T, V = logits.shape 
+    logits_flat = logits.reshape(B*T, V) 
+    targets_flat = targets.reshape(B*T) 
+    loss, ce_cache = softmax_cross_entropy_forward(logits_flat, targets_flat, ignore_index) 
+    cache = (ce_cache, B, T, V) 
+    return loss, cache 
+
+def loss_backward(grad_loss, cache): 
+    ce_cache, B, T, V = cache 
+    grad_logits_flat, _ = softmax_cross_entropy_backward(grad_loss, ce_cache) 
+    grad_logits = grad_logits_flat.reshape(B, T, V) 
+    return grad_logits 
+
+def model_backward(grad_logits, cache, params, config): 
+    B = cache['B'] 
+    T = cache['T']
+    S = cache['S'] 
+    D = config['d_model'] 
+    grads = {} 
+
+    # Output projection 
+    grad_logits_flat = grad_logits.reshape(B*T, config['tgt_vocab']) 
+    dec_flat = cache['dec_flat']
+    grad_dec_flat = grad_logits_flat @ params['tgt_token_embed'] 
+    grad_tgt_token_embed_from_proj = grad_logits_flat.T @ dec_flat
+    grad_dec_normed = grad_dec_flat.reshape(B, T, D) 
+
+    # Final Layer Norm 
+    grad_dec_x, grad_final_ln_gamma, grad_final_ln_beta = layer_norm_backward(
+        grad_dec_normed, cache['final_ln_cache']
+    )
+    grads['final_ln_gamma'] = grad_final_ln_gamma
+    grads['final_ln_beta'] = grad_final_ln_beta
+
+    # Decoder blocks 
+    grads['decoder_blocks'] = [None] * config['n_dec_layers']
+    grad_encoder_output = np.zeros((B, S, D), dtype=np.float64)
+
+    for i in reversed(range(config['n_dec_layers'])):
+        block_cache = cache['dec_block_caches'][i]
+        grad_dec_x, grad_enc_contribution, block_grads = decoder_block_backward(
+            grad_dec_x, block_cache
+        )
+        grad_encoder_output = grad_encoder_output + grad_enc_contribution
+        grads['decoder_blocks'][i] = block_grads
+
+    # --- 4. Target embeddings ---
+    # dec_input = tgt_tok_emb + tgt_pos_emb (broadcast)
+    grad_tgt_tok_emb = grad_dec_x
+    grad_tgt_pos_emb = grad_dec_x.sum(axis=0)  # sum over batch (broadcast direction)
+
+    grad_tgt_token_embed_from_input, = token_embedding_backward(
+        grad_tgt_tok_emb, cache['tgt_tok_cache']
+    )
+    grad_tgt_pos_embed, = positional_embedding_backward(
+        grad_tgt_pos_emb, cache['tgt_pos_cache']
+    )
+
+    # Combine the two contributions to tgt_token_embed
+    grads['tgt_token_embed'] = grad_tgt_token_embed_from_input + grad_tgt_token_embed_from_proj
+    grads['tgt_pos_embed'] = grad_tgt_pos_embed
+
+    # Encoder blcoks 
+    grads['decoder_blocks'] = [None] * config['n_dec_layers']
+    grad_encoder_output = np.zeros((B, S, D), dtype=np.float64)
+
+    for i in reversed(range(config['n_dec_layers'])):
+        block_cache = cache['dec_block_caches'][i]
+        grad_dec_x, grad_enc_contribution, block_grads = decoder_block_backward(
+            grad_dec_x, block_cache
+        )
+        grad_encoder_output = grad_encoder_output + grad_enc_contribution
+        grads['decoder_blocks'][i] = block_grads
+
+    # --- 4. Target embeddings ---
+    # dec_input = tgt_tok_emb + tgt_pos_emb (broadcast)
+    grad_tgt_tok_emb = grad_dec_x
+    grad_tgt_pos_emb = grad_dec_x.sum(axis=0)  # sum over batch (broadcast direction)
+
+    grad_tgt_token_embed_from_input, = token_embedding_backward(
+        grad_tgt_tok_emb, cache['tgt_tok_cache']
+    )
+    grad_tgt_pos_embed, = positional_embedding_backward(
+        grad_tgt_pos_emb, cache['tgt_pos_cache']
+    )
+
+    # Combine the two contributions to tgt_token_embed
+    grads['tgt_token_embed'] = grad_tgt_token_embed_from_input + grad_tgt_token_embed_from_proj
+    grads['tgt_pos_embed'] = grad_tgt_pos_embed
