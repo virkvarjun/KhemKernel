@@ -49,6 +49,74 @@ Vocabularies saved to data/smiles_vocab.json and data/iupac_vocab.json
 
 SMILES uses the Schwaller et al. regex tokenizer (handles multi-char atoms like `[C@@H]`, `Cl`, `Br`). IUPAC is split on word boundaries, digits, and punctuation. Rare IUPAC tokens (< 5 occurrences) map to `<unk>`.
 
+## How to run
+
+### Fresh training run
+
+```bash
+python scripts/train.py \
+    --data data/raw_pairs.parquet \
+    --d_model 256 --n_heads 4 --d_ff 1024 \
+    --n_enc_layers 3 --n_dec_layers 3 \
+    --total_steps 100000 --batch_size 32 \
+    --peak_lr 3e-4 --warmup_steps 2000 --schedule cosine \
+    --checkpoint_every 500 --val_every 500 --eval_every 5000
+```
+
+Each run creates a timestamped directory under `runs/`, containing:
+- `ckpt_latest.npz` — overwritten every `--checkpoint_every` steps; use this to resume after a crash
+- `ckpt_best.npz` — saved whenever validation loss improves
+- `ckpt_NNNNNNN.npz` — milestone snapshots every `--keep_checkpoint_every` steps (default 5000)
+- `log.jsonl` — one JSON line per logged step (train loss, val loss, LR, OPSIN eval)
+- `loss_curve.png` / `training_progress.png` — 2-panel training plot (loss + structure match rate)
+
+> **Expected timeline:** On CPU (NumPy), expect ~2–5 seconds per step with batch size 32 and `d_model=256`. A full 100k-step run takes roughly 60–120 hours. Checkpoint 11 onwards moves to GPU, which will reduce this by ~100×.
+
+### Resume after a crash
+
+```bash
+python scripts/resume_training.py
+```
+
+Automatically finds the most recently modified run in `runs/`, reads its `run_args.json`, and re-launches `scripts/train.py` with `--resume_from` pointing at `ckpt_latest.npz`. Additional arguments appended on the command line override saved args:
+
+```bash
+python scripts/resume_training.py --total_steps 200000
+```
+
+### Evaluate a checkpoint
+
+```bash
+python scripts/evaluate.py \
+    --checkpoint runs/run_<timestamp>/ckpt_best.npz \
+    --n_samples 500
+```
+
+Prints:
+
+```
+─────────────────────────────────────────────
+  Step:              12500
+  N evaluated:       500
+  Trace validity:     83.4%  (417 / 500)
+  OPSIN parse:        61.2%  (306 / 500)
+  Structure match:    38.8%  (194 / 500)
+─────────────────────────────────────────────
+```
+
+Requires Java 8+ for OPSIN. Install with `pip install py2opsin` then ensure `java` is on `$PATH`. Without Java, only trace validity rate is reported.
+
+### Sample generated traces
+
+```bash
+python scripts/sample_during_training.py \
+    --checkpoint runs/run_<timestamp>/ckpt_best.npz
+```
+
+Decodes 5 fixed SMILES strings and prints the generated reasoning traces to stdout.
+
+---
+
 ## Ops (`picochem/ops.py`)
 
 All forward and backward passes are implemented from scratch in NumPy. Each op returns a cache for the backward pass; gradients are verified against finite differences via pytest.
