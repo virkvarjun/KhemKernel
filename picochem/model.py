@@ -246,3 +246,37 @@ def greedy_decode(src_ids, src_mask, params, config,
         if next_token == end_token: 
             break 
     return output
+
+def sample_decode(src_ids, src_mask, params, config,
+                  start_token, end_token, pad_token,
+                  max_length=200, temperature=1.0, rng=None):
+    """Generate using temperature sampling.
+
+    temperature < 1.0: more conservative (close to greedy)
+    temperature = 1.0: sample from raw distribution
+    temperature > 1.0: more random
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    output = [start_token]
+
+    for _ in range(max_length - 1):
+        tgt_ids = np.array([output], dtype=np.int32)
+        tgt_mask = np.ones_like(tgt_ids, dtype=np.float64)
+
+        logits, _ = model_forward(src_ids, tgt_ids, src_mask, tgt_mask, params, config)
+        next_logits = logits[0, -1]
+
+        # Apply temperature and sample
+        scaled = next_logits / temperature
+        probs = np.exp(scaled - scaled.max())  # stable softmax
+        probs = probs / probs.sum()
+        next_token = int(rng.choice(len(probs), p=probs))
+
+        output.append(next_token)
+
+        if next_token == end_token:
+            break
+
+    return output
