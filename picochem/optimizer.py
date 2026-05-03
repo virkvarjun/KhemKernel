@@ -32,3 +32,38 @@ def adam_step(params, grads, state, step, lr=1e-3, beta1=0.9, beta2=0.999, eps=1
         return params
 
     raise TypeError(f"Unsupported type: {type(params)}")
+
+# Gradient clipping 
+def clip_grad_norm(grads, max_norm): 
+    total_sq = 0.0 
+    def accumulate(g):
+        nonlocal total_sq
+        if isinstance(g, np.ndarray):
+            total_sq += (g ** 2).sum()
+        elif isinstance(g, dict):
+            for v in g.values():
+                accumulate(v)
+        elif isinstance(g, list):
+            for v in g:
+                accumulate(v)
+
+    accumulate(grads)
+    total_norm = np.sqrt(total_sq)
+
+    # Scale down if needed
+    if total_norm > max_norm:
+        scale = max_norm / (total_norm + 1e-6)
+
+        def rescale(g):
+            if isinstance(g, np.ndarray):
+                g *= scale
+            elif isinstance(g, dict):
+                for v in g.values():
+                    rescale(v)
+            elif isinstance(g, list):
+                for v in g:
+                    rescale(v)
+
+        rescale(grads)
+
+    return total_norm
