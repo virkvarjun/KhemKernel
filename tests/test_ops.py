@@ -94,3 +94,4 @@ def test_cross_entropy_gradient():
         return (result[0],)  # only logits gradient
     
     check_gradient(fwd, bwd, [logits])
+
