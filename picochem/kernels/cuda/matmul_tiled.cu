@@ -48,7 +48,10 @@ int main(){
 
     for (int i = 0; i < M*K; ++i){ 
         h_A[i] = static_cast<float>(rand()) / RAND_MAX; 
+    } 
+    for (int i = 0; i < K*N; ++i){ 
         h_B[i] = static_cast<float>(rand()) / RAND_MAX; 
+    } 
         float *d_A, *d_B, *d_C; 
         CUDA_CHECK(cudaMalloc(&d_A, M * K * sizeof(float))); 
         CUDA_CHECK(cudaMalloc(&d_B, K * N * sizeof(float))); 
@@ -62,6 +65,49 @@ int main(){
 
         matmul_tiled_kernel <<<blcoks, threads>>>(d_A, d_B, d_C, M, N, K); 
         CUDA_CHECK_KERNEL(); 
-        
+    const int n_runs = 20;
+    auto t0 = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < n_runs; ++i) {
+        matmul_tiled_kernel<<<blocks, threads>>>(d_A, d_B, d_C, M, N, K);
     }
+    CUDA_CHECK(cudaDeviceSynchronize());
+    auto t1 = std::chrono::high_resolution_clock::now();
+    double ms = std::chrono::duration<double, std::milli>(t1 - t0).count() / n_runs;
+
+    // GFLOPS = 2 * M * N * K (each output element is K multiply-adds).
+    double gflops = (2.0 * M * N * K) / (ms / 1000.0) / 1e9;
+    printf("matmul_tiled (%dx%dx%d): %.2f ms, %.1f GFLOPS\n", M, K, N, ms, gflops);
+
+    // Correctness check on a smaller problem (CPU reference is slow).
+    const int Ms = 64, Ks = 64, Ns = 64;
+    std::vector<float> sA(Ms * Ks), sB(Ks * Ns), sC(Ms * Ns), expected(Ms * Ns);
+    for (int i = 0; i < Ms * Ks; ++i) sA[i] = static_cast<float>(rand()) / RAND_MAX;
+    for (int i = 0; i < Ks * Ns; ++i) sB[i] = static_cast<float>(rand()) / RAND_MAX;
+    for (int i = 0; i < Ms; ++i)
+        for (int j = 0; j < Ns; ++j) {
+            float a = 0.0f;
+            for (int k = 0; k < Ks; ++k) a += sA[i * Ks + k] * sB[k * Ns + j];
+            expected[i * Ns + j] = a;
+        }
+
+    float *dA, *dB, *dC;
+    CUDA_CHECK(cudaMalloc(&dA, Ms * Ks * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&dB, Ks * Ns * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&dC, Ms * Ns * sizeof(float)));
+    CUDA_CHECK(cudaMemcpy(dA, sA.data(), Ms * Ks * sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(dB, sB.data(), Ks * Ns * sizeof(float), cudaMemcpyHostToDevice));
+    dim3 sblocks((Ns + TILE - 1) / TILE, (Ms + TILE - 1) / TILE);
+    matmul_tiled_kernel<<<sblocks, threads>>>(dA, dB, dC, Ms, Ns, Ks);
+    CUDA_CHECK_KERNEL();
+    CUDA_CHECK(cudaMemcpy(sC.data(), dC, Ms * Ns * sizeof(float), cudaMemcpyDeviceToHost));
+
+    float max_err = 0.0f;
+    for (int i = 0; i < Ms * Ns; ++i)
+        max_err = std::max(max_err, std::abs(sC[i] - expected[i]));
+    printf("Correctness: max error = %.6e\n", max_err);
+
+    CUDA_CHECK(cudaFree(d_A)); CUDA_CHECK(cudaFree(d_B)); CUDA_CHECK(cudaFree(d_C));
+    CUDA_CHECK(cudaFree(dA));  CUDA_CHECK(cudaFree(dB));  CUDA_CHECK(cudaFree(dC));
+    return 0;
 }
+
