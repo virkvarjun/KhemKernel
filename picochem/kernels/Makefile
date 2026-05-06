@@ -1,16 +1,26 @@
-NVCC = nvcc
-NVCC_FLAGS = -O3 -arch=sm_75 -std=c++17
+NVCC       = nvcc
+CUDA_ARCH ?= sm_120
+NVCC_FLAGS = -O3 -arch=$(CUDA_ARCH) -std=c++17
 
-# List of executables we'll build (one per .cu file)
-TARGETS = vector_add matmul_naive matmul_tiled softmax layer_norm
+CUDA_DIR = cuda
+TARGETS   = vector_add matmul_naive matmul_tiled softmax layer_norm
+SOURCES   = $(addprefix $(CUDA_DIR)/, $(addsuffix .cu, $(TARGETS)))
+OBJECTS   = $(addprefix $(CUDA_DIR)/, $(addsuffix .o,  $(TARGETS)))
 
-all: $(TARGETS)
+# Default: build the standalone test executables.
+.PHONY: all standalone library clean
+all: standalone
 
-%: %.cu common.h
-	$(NVCC) $(NVCC_FLAGS) $< -o $@
+standalone: $(TARGETS)
+
+$(TARGETS): %: $(CUDA_DIR)/%.cu $(CUDA_DIR)/common.h $(CUDA_DIR)/%.h
+	$(NVCC) $(NVCC_FLAGS) -DBUILD_STANDALONE $< -o $(CUDA_DIR)/$@
+
+# Compile position-independent object files for linking into the Python module.
+library: $(OBJECTS)
+
+$(CUDA_DIR)/%.o: $(CUDA_DIR)/%.cu $(CUDA_DIR)/common.h $(CUDA_DIR)/%.h
+	$(NVCC) $(NVCC_FLAGS) -Xcompiler -fPIC -c $< -o $@
 
 clean:
-	rm -f $(TARGETS)
-
-.PHONY: all clean 
-
+	rm -f $(addprefix $(CUDA_DIR)/, $(TARGETS)) $(OBJECTS)
