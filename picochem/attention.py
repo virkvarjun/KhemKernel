@@ -1,6 +1,7 @@
 """Multi-head self-attention and cross-attention with numpy."""
 import numpy as np
-from picochem.ops import softmax_forward, softmax_backward, linear_forward, linear_backward
+import picochem.backend as backend
+from picochem.ops import softmax_backward_pure, linear_forward, linear_backward
 
 
 def scaled_dot_product_attention_forward(Q, K, V, mask=None):
@@ -20,7 +21,7 @@ def scaled_dot_product_attention_forward(Q, K, V, mask=None):
     if mask is not None:
         scores = scores + mask
 
-    weights, softmax_cache = softmax_forward(scores)
+    weights, softmax_cache = backend.softmax(scores)
     out = np.matmul(weights, V)
     cache = (Q, K, V, weights, softmax_cache, mask)
     return out, cache
@@ -33,7 +34,7 @@ def scaled_dot_product_attention_backward(grad_out, cache):
     grad_weights = np.matmul(grad_out, V.swapaxes(-2, -1))
     grad_V = np.matmul(weights.swapaxes(-2, -1), grad_out)
 
-    grad_scores, = softmax_backward(grad_weights, softmax_cache)
+    grad_scores, = softmax_backward_pure(grad_weights, softmax_cache)
     grad_scores = grad_scores / np.sqrt(Dh)
 
     grad_Q = np.matmul(grad_scores, K)

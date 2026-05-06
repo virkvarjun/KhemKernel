@@ -104,7 +104,17 @@ def main():
     parser.add_argument("--log_every", type=int, default=50)
     parser.add_argument("--plot_every", type=int, default=500)
 
+    # Backend
+    parser.add_argument("--backend", choices=["numpy", "cuda"], default="numpy",
+                        help="Compute backend for forward-pass ops (default: numpy).")
+
     args = parser.parse_args()
+
+    # ── Backend ───────────────────────────────────────────────────────────
+    from picochem import backend as _backend_mod
+    _backend_mod.set_backend(args.backend)
+    if args.backend != "numpy":
+        print(f"Backend: {args.backend}")
 
     # ── Run directory ──────────────────────────────────────────────────────
     if args.run_dir is None:
