@@ -33,4 +33,20 @@ void matmul_cublas(const float* h_A, const float* h_B, float* h_C, int M, int N,
     const float alpha = 1.0f; 
     const float beta = 0.0f; 
 
+    // Swap A and B in he argument oder, swap M and N in the size arguments, and resukts is in our row-major C 
+    CUBLAS_CHECK(cublasSgemm( 
+       handle,
+        CUBLAS_OP_N, CUBLAS_OP_N,    // no transpose for either (cuBLAS sees them as transposed already)
+        N, M, K,                      // dimensions of result (in cuBLAS's column-major view)
+        &alpha,
+        d_B, N,                       // first matrix in cuBLAS view (= B^T in row-major view), leading dim = N
+        d_A, K,                       // second matrix in cuBLAS view (= A^T in row-major view), leading dim = K
+        &beta,
+        d_C, N                        // output, leading dim = N
+    )); 
+    CUDA_CHECK(cudaMemcpy(h_C, d_c, M*N*sizeof(float), cudaMemcpyDeviceToHost)); 
+    CUBLAS_CHECK(cublasDestroy(handle)); 
+    CUDA_CHECK(cudaFree(d_A)); 
+    CUDA_CHECK(cudaFree(d_B)); 
+    CUDA_CHECK(cudaFree(d_C)); 
 }
