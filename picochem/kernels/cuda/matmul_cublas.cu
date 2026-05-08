@@ -14,3 +14,23 @@
             exit(EXIT_FAILURE);                                                \
         }                                                                      \
     } while (0)
+
+// Compute C = A @ B using cuBLAS, where A is (M, K), B is (K, N), C is (M, N).
+// Inputs and outputs are row-major (standard C convention).
+void matmul_cublas(const float* h_A, const float* h_B, float* h_C, int M, int N, int K){ 
+    float *d_A, *d_B, *d_C; 
+    CUDA_CHECK(cudaMalloc(&d_A, M*K*sizeof(float))); 
+    CUDA_CHECK(cudaMalloc(&d_B, K*N*sizeof(float))); 
+    CUDA_CHECK(cudaMalloc(&d_C, M*N*sizeof(float))); 
+
+    CUDA_CHECK(cudaMemcpy(d_A, h_A, M*K*sizeof(float), cudaMemcpyHostToDevice)); 
+    CUDA_CHECK(cudaMemcpy(d_B, h_B, N*K*sizeof(float), cudaMemcpyHostToDevice)); 
+
+    // cuBLAS handle
+    cublasHandle_t handle; 
+    CUBLAS_CHECK(cublasCreate(&handle)); 
+
+    const float alpha = 1.0f; 
+    const float beta = 0.0f; 
+
+}
