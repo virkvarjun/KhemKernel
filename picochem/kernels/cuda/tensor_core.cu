@@ -67,3 +67,39 @@ __global__ void matmul_tensor_core_kernel(const half* A, const half*B, half* C, 
         }
     }
 }
+
+void matmul_tensor_core(const float* h_A_fp32, const float* h_B_fp32, float* h_C_fp32,
+                         int M, int N, int K){ 
+                            // Convert inputs to FP16 on host.
+    std::vector<half> h_A(M * K), h_B(K * N);
+    std::vector<half> h_C(M * N);
+    for (int i = 0; i < M * K; ++i) h_A[i] = __float2half(h_A_fp32[i]);
+    for (int i = 0; i < K * N; ++i) h_B[i] = __float2half(h_B_fp32[i]);
+
+    half *d_A, *d_B, *d_C;
+    CUDA_CHECK(cudaMalloc(&d_A, M * K * sizeof(half)));
+    CUDA_CHECK(cudaMalloc(&d_B, K * N * sizeof(half)));
+    CUDA_CHECK(cudaMalloc(&d_C, M * N * sizeof(half)));
+
+    CUDA_CHECK(cudaMemcpy(d_A, h_A.data(), M * K * sizeof(half), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_B, h_B.data(), K * N * sizeof(half), cudaMemcpyHostToDevice));
+
+    // Launch grid: each block has WARPS_PER_BLOCK warps, each computing one tile.
+    // So each block computes WARPS_PER_BLOCK tiles in the row direction, 1 in the col direction.
+    int row_tiles = (M + WMMA_M - 1) / WMMA_M;
+    int col_tiles = (N + WMMA_N - 1) / WMMA_N;
+    dim3 grid(col_tiles, (row_tiles + WARPS_PER_BLOCK - 1) / WARPS_PER_BLOCK);
+    dim3 block(THREADS_PER_BLOCK);
+
+    matmul_tensor_core_kernel<<<grid, block>>>(d_A, d_B, d_C, M, N, K);
+    CUDA_CHECK_KERNEL();
+
+    CUDA_CHECK(cudaMemcpy(h_C.data(), d_C, M * N * sizeof(half), cudaMemcpyDeviceToHost));
+
+    // Convert FP16 outputs back to FP32 for caller.
+    for (int i = 0; i < M * N; ++i) h_C_fp32[i] = __half2float(h_C[i]);
+
+    CUDA_CHECK(cudaFree(d_A));
+    CUDA_CHECK(cudaFree(d_B));
+    CUDA_CHECK(cudaFree(d_C));
+                         }
