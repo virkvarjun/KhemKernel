@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 320" width="800" height="320" font-family="Inter, sans-serif">
+  <rect width="800" height="320" fill="#f4f3ed"/>
+  <g fill="none" stroke="#e6e4dc">
+    <rect x="80" y="60" width="180" height="200"/>
+    <rect x="290" y="60" width="180" height="200"/>
+    <rect x="500" y="60" width="180" height="200"/>
+  </g>
+  <g fill="#1a1a1a" font-size="12">
+    <text x="170" y="285" text-anchor="middle" fill="#5a5a5a">stereocenters</text>
+    <text x="380" y="285" text-anchor="middle" fill="#5a5a5a">long chains</text>
+    <text x="590" y="285" text-anchor="middle" fill="#5a5a5a">fused rings</text>
+  </g>
+  <text x="400" y="310" text-anchor="middle" fill="#8a8a85" font-size="11" font-style="italic">placeholder failure grid</text>
+</svg>
