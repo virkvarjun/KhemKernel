@@ -11,13 +11,14 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
-const { Content, headings, remarkPluginFrontmatter } = await render(post);
+const { Content, headings } = await render(post);
 
 const words = (post.body || '').trim().split(/\s+/).length;
 const readingTime = Math.max(1, Math.round(words / 220));
 ---
 
 <BlogPost
+  slug={post.id}
   title={post.data.title}
   description={post.data.description}
   pubDate={post.data.pubDate}
