@@ -17,14 +17,11 @@ const bibtex = `@misc{${bibKey},
 }`;
 ---
 
-<section class="citation-section">
-  <h2 id="citation">Citation</h2>
-  <p class="cite-line text-muted text-small">If you found this useful, you can cite it as:</p>
-  <div class="citation-block" data-bibtex={bibtex}>
-    <button type="button" class="copy-btn" aria-label="Copy BibTeX">Copy</button>
-    <code>{bibtex}</code>
-  </div>
-</section>
+<p class="cite-line text-muted text-small">If you reference this post, please cite it as:</p>
+<div class="citation-block" data-bibtex={bibtex}>
+  <button type="button" class="copy-btn" aria-label="Copy BibTeX">Copy</button>
+  <code>{bibtex}</code>
+</div>
 
 <script is:inline>
   document.querySelectorAll('.citation-block .copy-btn').forEach((btn) => {
@@ -42,13 +39,11 @@ const bibtex = `@misc{${bibKey},
 </script>
 
 <style>
-  .citation-section { margin-top: 3rem; }
-  .cite-line { margin-bottom: 0.5rem; }
+  .cite-line { margin: 1rem 0 0.5rem; }
   .citation-block code {
     background: transparent;
-    border: 0;
     padding: 0;
     font-size: inherit;
-    color: var(--text);
+    color: var(--fg);
   }
 </style>
