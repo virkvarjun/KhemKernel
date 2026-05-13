@@ -1,0 +1,14 @@
+---
+interface Props { label?: string }
+const { label } = Astro.props;
+---
+
+<aside class="aside">
+  {label && <p class="aside-label eyebrow">{label}</p>}
+  <slot />
+</aside>
+
+<style>
+  .aside-label { margin-bottom: 0.4rem; color: var(--fg4); }
+  .aside :global(p:last-child) { margin-bottom: 0; }
+</style>

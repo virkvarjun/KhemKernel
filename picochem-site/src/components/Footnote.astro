@@ -1,49 +1,15 @@
 ---
-interface Props { id: string | number }
-const { id } = Astro.props;
+// TM-style sidenote: number + tooltip-on-narrow / margin note on wide.
+// Usage: <Footnote>content</Footnote>
+// (numbering is automatic via CSS counter on .prose)
+interface Props { n?: string | number }
+const { n } = Astro.props;
 ---
 
-<sup class="footnote-ref">
-  <a href={`#fn-${id}`} id={`fnref-${id}`} aria-describedby="footnotes-label">
-    {id}
-    <span class="footnote-tooltip" role="tooltip"><slot /></span>
-  </a>
-</sup>
+<span class="sidenote-number" tabindex="0" data-n={n ?? ''}>
+  <span class="sidenote"><slot /></span>
+</span>
 
 <style>
-  .footnote-ref a {
-    position: relative;
-    color: var(--accent);
-    border-bottom: 0;
-    font-family: var(--font-sans);
-    font-weight: 500;
-  }
-  .footnote-ref a:hover { color: var(--accent-hover); }
-  .footnote-tooltip {
-    position: absolute;
-    bottom: 1.5em;
-    left: 50%;
-    transform: translateX(-50%) translateY(4px);
-    width: min(320px, 80vw);
-    background: var(--bg-elevated);
-    color: var(--text);
-    border: 1px solid var(--rule);
-    border-radius: 4px;
-    padding: 0.6rem 0.75rem;
-    font-family: var(--font-serif);
-    font-size: 0.85rem;
-    font-weight: 400;
-    line-height: 1.5;
-    text-align: left;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 120ms ease, transform 120ms ease;
-    z-index: 30;
-    box-shadow: 0 4px 14px -8px rgba(0, 0, 0, 0.18);
-  }
-  .footnote-ref a:hover .footnote-tooltip,
-  .footnote-ref a:focus-visible .footnote-tooltip {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
+  .sidenote-number { /* counter, color, tooltip behavior all in global.css */ }
 </style>
