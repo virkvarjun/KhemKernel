@@ -25,6 +25,9 @@ __pycache__/
 *.parquet
 *.json
 
+# Site (Astro) — allow its config/manifest files
+!picochem-site/**/*.json
+
 # macOS
 .DS_Store
 
