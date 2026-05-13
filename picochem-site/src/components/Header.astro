@@ -1,14 +1,16 @@
 ---
 const { pathname } = Astro.url;
 const isActive = (href: string) =>
-  pathname === href || (href !== '/' && pathname.startsWith(href));
+  href === '/' ? pathname === '/' : pathname.startsWith(href);
 ---
 
-<header class="site-header">
-  <div class="container-wide site-header-inner">
-    <a href="/" class="site-title" aria-label="picochem home">picochem</a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="/" class={isActive('/') && pathname === '/' ? 'is-active' : ''}>Blog</a>
+<header id="header" class="site-header">
+  <div class="site-header-inner">
+    <div class="navbar-logo">
+      <a href="/" aria-label="picochem home">PICOCHEM</a>
+    </div>
+    <nav class="top-nav" aria-label="Primary">
+      <a href="/" class={isActive('/') ? 'is-active' : ''}>Blog</a>
       <a href="/about" class={isActive('/about') ? 'is-active' : ''}>About</a>
       <button
         type="button"
@@ -16,11 +18,11 @@ const isActive = (href: string) =>
         aria-label="Toggle dark mode"
         title="Toggle theme"
       >
-        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg id="sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="4"/>
           <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
         </svg>
-        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <svg id="moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
         </svg>
       </button>
@@ -30,59 +32,65 @@ const isActive = (href: string) =>
 
 <style>
   .site-header {
-    border-bottom: 1px solid var(--rule);
-    padding: 1.1rem 0;
-    background: var(--bg);
+    height: var(--site-header-height);
     position: sticky;
     top: 0;
-    z-index: 50;
-    backdrop-filter: saturate(120%) blur(8px);
-    -webkit-backdrop-filter: saturate(120%) blur(8px);
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    z-index: 100;
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    backdrop-filter: saturate(140%) blur(6px);
+    -webkit-backdrop-filter: saturate(140%) blur(6px);
+    border-bottom: 1px solid var(--rule);
   }
   .site-header-inner {
+    max-width: var(--measure-wide);
+    height: 100%;
+    margin: 0 auto;
+    padding: 0 var(--gutter);
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
-  .site-title {
-    font-family: var(--font-sans);
-    font-weight: 600;
-    font-size: 0.95rem;
-    letter-spacing: 0.01em;
-    color: var(--text);
-    border-bottom: 0;
+
+  .navbar-logo a {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    color: var(--fg2);
+    text-decoration: none;
   }
-  .site-title:hover { color: var(--accent); }
-  .site-nav {
+  .navbar-logo a:hover { color: var(--fg); opacity: 0.85; }
+
+  .top-nav {
     display: flex;
     align-items: center;
     gap: 1.5rem;
   }
-  .site-nav a {
+  .top-nav a {
     font-family: var(--font-sans);
-    font-size: 0.9rem;
-    color: var(--text-muted);
-    border-bottom: 0;
+    font-size: 14px;
+    color: var(--fg3);
+    text-decoration: none;
+    letter-spacing: 0.005em;
+    padding: 0.25rem 0;
   }
-  .site-nav a:hover { color: var(--text); }
-  .site-nav a.is-active { color: var(--text); }
+  .top-nav a:hover { color: var(--fg); }
+  .top-nav a.is-active { color: var(--fg); }
 
   #theme-toggle {
     background: transparent;
     border: 0;
-    color: var(--text-muted);
+    color: var(--fg3);
     cursor: pointer;
-    padding: 0.25rem;
+    padding: 0.25rem 0.3rem;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
     border-radius: 3px;
+    margin-left: 0.25rem;
   }
-  #theme-toggle:hover { color: var(--text); }
-  #theme-toggle .icon-moon { display: none; }
-  :global([data-theme='dark']) #theme-toggle .icon-sun { display: none; }
-  :global([data-theme='dark']) #theme-toggle .icon-moon { display: inline-block; }
+  #theme-toggle:hover { color: var(--fg); }
+  :global([data-theme='dark']) #sun { display: none; }
+  :global(:not([data-theme='dark'])) #moon { display: none; }
 </style>
 
 <script is:inline>
