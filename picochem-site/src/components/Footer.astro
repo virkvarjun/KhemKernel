@@ -3,12 +3,13 @@ const year = new Date().getFullYear();
 ---
 
 <footer class="site-footer">
-  <div class="container-wide site-footer-inner">
+  <div class="site-footer-inner">
     <span class="copyright">© {year} picochem</span>
     <nav class="footer-nav" aria-label="Footer">
       <a href="/rss.xml">RSS</a>
-      <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
       <a href="/about">About</a>
+      <a href="#">Terms</a>
+      <a href="#">Privacy</a>
     </nav>
   </div>
 </footer>
@@ -16,26 +17,27 @@ const year = new Date().getFullYear();
 <style>
   .site-footer {
     border-top: 1px solid var(--rule);
-    padding: 2rem 0 3rem;
-    margin-top: 5rem;
+    margin-top: 6rem;
+    padding: 1.5rem 0 2.5rem;
     font-family: var(--font-sans);
-    font-size: 0.8rem;
-    color: var(--text-subtle);
+    font-size: 12.5px;
+    color: var(--fg4);
   }
   .site-footer-inner {
+    max-width: var(--measure-wide);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
     display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
     gap: 1rem;
     flex-wrap: wrap;
   }
-  .footer-nav {
-    display: flex;
-    gap: 1.25rem;
-  }
+  .copyright { letter-spacing: 0.01em; }
+  .footer-nav { display: flex; gap: 1.25rem; }
   .footer-nav a {
-    color: var(--text-subtle);
-    border-bottom: 0;
+    color: var(--fg4);
+    text-decoration: none;
   }
   .footer-nav a:hover { color: var(--accent); }
 </style>
