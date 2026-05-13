@@ -50,12 +50,10 @@ const fullTitle = title === 'picochem' ? title : `${title} — picochem`;
     <link rel="sitemap" href="/sitemap-index.xml" />
 
     <script is:inline>
+      // Light is the default. Dark only when the user has explicitly chosen it.
       (function () {
         try {
-          const stored = localStorage.getItem('theme');
-          if (stored === 'dark' || stored === 'light') {
-            document.documentElement.setAttribute('data-theme', stored);
-          } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          if (localStorage.getItem('theme') === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
           }
         } catch (e) {}
@@ -66,9 +64,7 @@ const fullTitle = title === 'picochem' ? title : `${title} — picochem`;
   </head>
   <body>
     <Header />
-    <main>
-      <slot />
-    </main>
+    <slot />
     <Footer />
   </body>
 </html>
