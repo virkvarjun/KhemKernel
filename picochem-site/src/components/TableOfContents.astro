@@ -1,72 +1,103 @@
 ---
-export interface Heading {
-  depth: number;
-  slug: string;
-  text: string;
-}
+export interface Heading { depth: number; slug: string; text: string }
 interface Props { headings: Heading[] }
 const { headings } = Astro.props;
+
 const items = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
+
+// Group h3s under their preceding h2
+type Node = Heading & { children: Heading[] };
+const tree: Node[] = [];
+for (const h of items) {
+  if (h.depth === 2) tree.push({ ...h, children: [] });
+  else if (tree.length) tree[tree.length - 1].children.push(h);
+}
 ---
 
-{items.length > 0 && (
-  <aside class="toc" aria-label="Table of contents">
-    <p class="toc-label">Contents</p>
-    <ol>
-      {items.map((h) => (
-        <li class={`toc-item depth-${h.depth}`}>
+{tree.length > 0 && (
+  <nav id="left-toc" class="left-toc" aria-label="Table of contents">
+    <p class="toc-label eyebrow">On this page</p>
+    <ul>
+      {tree.map((h) => (
+        <li>
           <a href={`#${h.slug}`} data-slug={h.slug}>{h.text}</a>
+          {h.children.length > 0 && (
+            <ul>
+              {h.children.map((c) => (
+                <li><a href={`#${c.slug}`} data-slug={c.slug}>{c.text}</a></li>
+              ))}
+            </ul>
+          )}
         </li>
       ))}
-    </ol>
-  </aside>
+    </ul>
+  </nav>
 )}
 
 <style>
-  .toc {
+  .left-toc {
     font-family: var(--font-sans);
-    font-size: 0.82rem;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--fg4);
   }
   .toc-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-subtle);
-    margin-bottom: 0.75rem;
-    font-weight: 500;
+    margin-bottom: 0.85rem;
+    color: var(--fg4);
   }
-  .toc ol {
+  .left-toc ul {
     list-style: none;
-    padding: 0;
+    padding-left: 0;
     margin: 0;
+  }
+  .left-toc li {
+    margin: 0 0 0.7rem 0;
+    position: relative;
+  }
+  .left-toc ul ul {
+    padding-left: 0.85rem;
+    margin-top: 0.5rem;
     border-left: 1px solid var(--rule);
   }
-  .toc li {
-    margin: 0;
-    padding: 0;
+  .left-toc ul ul li { margin-bottom: 0.5rem; }
+  .left-toc ul ul a { font-size: 12.5px; color: var(--fg4); }
+
+  .left-toc a {
+    color: var(--fg3);
+    text-decoration: none;
+    display: inline-block;
+    line-height: 1.4;
+    transition: color 200ms ease;
   }
-  .toc a {
-    display: block;
-    padding: 0.3rem 0 0.3rem 0.85rem;
-    color: var(--text-muted);
-    border-bottom: 0;
-    border-left: 2px solid transparent;
-    margin-left: -1px;
-    transition: color 120ms, border-color 120ms;
+  .left-toc a:hover {
+    color: var(--fg);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--fg) 20%, transparent);
+    text-underline-offset: 2px;
   }
-  .toc a:hover { color: var(--text); }
-  .toc .depth-3 a { padding-left: 1.75rem; font-size: 0.78rem; }
-  .toc a.is-active {
+  .left-toc a.is-active {
     color: var(--accent);
-    border-left-color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* Mobile collapsible */
+  .left-toc-toggle { display: none; }
+  @media (max-width: 1023px) {
+    .left-toc {
+      max-width: var(--measure-prose);
+      margin: 0 auto 2rem;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      background: var(--bg_s);
+    }
   }
 </style>
 
 <script is:inline>
   (function () {
     if (typeof IntersectionObserver === 'undefined') return;
-    const links = document.querySelectorAll('.toc a[data-slug]');
+    const links = document.querySelectorAll('.left-toc a[data-slug]');
     if (!links.length) return;
     const map = new Map();
     links.forEach((a) => map.set(a.getAttribute('data-slug'), a));
@@ -87,11 +118,9 @@ const items = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length) {
-          setActive(visible[0].target.id);
-        }
+        if (visible.length) setActive(visible[0].target.id);
       },
-      { rootMargin: '-80px 0px -70% 0px', threshold: 0 },
+      { rootMargin: '-90px 0px -70% 0px', threshold: 0 },
     );
     headings.forEach((h) => obs.observe(h));
   })();
