@@ -8,7 +8,17 @@ interface Props {
 const { src, alt, caption, wide = false } = Astro.props;
 ---
 
-<figure class={wide ? 'figure full-bleed' : 'figure'}>
+<figure class={wide ? 'figure figure-wide' : 'figure'}>
   <img src={src} alt={alt} loading="lazy" />
   {caption && <figcaption>{caption}</figcaption>}
 </figure>
+
+<style>
+  .figure-wide {
+    margin-left: calc(-1 * var(--media-breakout, 60px));
+    margin-right: calc(-1 * var(--media-breakout, 60px));
+  }
+  @media (max-width: 900px) {
+    .figure-wide { margin-left: 0; margin-right: 0; }
+  }
+</style>
