@@ -1,0 +1,41 @@
+---
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="container-wide site-footer-inner">
+    <span class="copyright">© {year} picochem</span>
+    <nav class="footer-nav" aria-label="Footer">
+      <a href="/rss.xml">RSS</a>
+      <a href="https://github.com/" target="_blank" rel="noopener">GitHub</a>
+      <a href="/about">About</a>
+    </nav>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: 1px solid var(--rule);
+    padding: 2rem 0 3rem;
+    margin-top: 5rem;
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    color: var(--text-subtle);
+  }
+  .site-footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .footer-nav {
+    display: flex;
+    gap: 1.25rem;
+  }
+  .footer-nav a {
+    color: var(--text-subtle);
+    border-bottom: 0;
+  }
+  .footer-nav a:hover { color: var(--accent); }
+</style>

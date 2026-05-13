@@ -1,0 +1,99 @@
+---
+const { pathname } = Astro.url;
+const isActive = (href: string) =>
+  pathname === href || (href !== '/' && pathname.startsWith(href));
+---
+
+<header class="site-header">
+  <div class="container-wide site-header-inner">
+    <a href="/" class="site-title" aria-label="picochem home">picochem</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="/" class={isActive('/') && pathname === '/' ? 'is-active' : ''}>Blog</a>
+      <a href="/about" class={isActive('/about') ? 'is-active' : ''}>About</a>
+      <button
+        type="button"
+        id="theme-toggle"
+        aria-label="Toggle dark mode"
+        title="Toggle theme"
+      >
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+        </svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+        </svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    border-bottom: 1px solid var(--rule);
+    padding: 1.1rem 0;
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: saturate(120%) blur(8px);
+    -webkit-backdrop-filter: saturate(120%) blur(8px);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+  }
+  .site-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .site-title {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+    color: var(--text);
+    border-bottom: 0;
+  }
+  .site-title:hover { color: var(--accent); }
+  .site-nav {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  .site-nav a {
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    border-bottom: 0;
+  }
+  .site-nav a:hover { color: var(--text); }
+  .site-nav a.is-active { color: var(--text); }
+
+  #theme-toggle {
+    background: transparent;
+    border: 0;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+  }
+  #theme-toggle:hover { color: var(--text); }
+  #theme-toggle .icon-moon { display: none; }
+  :global([data-theme='dark']) #theme-toggle .icon-sun { display: none; }
+  :global([data-theme='dark']) #theme-toggle .icon-moon { display: inline-block; }
+</style>
+
+<script is:inline>
+  (function () {
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const root = document.documentElement;
+      const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('theme', next); } catch (e) {}
+    });
+  })();
+</script>

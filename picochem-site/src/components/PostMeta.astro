@@ -1,0 +1,44 @@
+---
+interface Props {
+  author: string;
+  pubDate: Date;
+  updatedDate?: Date;
+  readingTime?: number;
+}
+const { author, pubDate, updatedDate, readingTime } = Astro.props;
+const fmt = (d: Date) =>
+  d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+---
+
+<p class="post-meta">
+  <span>{author}</span>
+  <span aria-hidden="true">·</span>
+  <time datetime={pubDate.toISOString()}>{fmt(pubDate)}</time>
+  {updatedDate && (
+    <>
+      <span aria-hidden="true">·</span>
+      <span class="text-subtle">Updated {fmt(updatedDate)}</span>
+    </>
+  )}
+  {readingTime && (
+    <>
+      <span aria-hidden="true">·</span>
+      <span>{readingTime} min read</span>
+    </>
+  )}
+</p>
+
+<style>
+  .post-meta {
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin: 0.5rem 0 2rem;
+    flex-wrap: wrap;
+  }
+  .post-meta span[aria-hidden] { color: var(--text-subtle); }
+</style>

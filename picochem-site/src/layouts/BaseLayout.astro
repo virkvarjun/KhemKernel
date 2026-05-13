@@ -1,0 +1,74 @@
+---
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { ClientRouter } from 'astro:transitions';
+
+interface Props {
+  title: string;
+  description?: string;
+  ogImage?: string;
+  type?: 'website' | 'article';
+  pubDate?: Date;
+}
+
+const {
+  title,
+  description = 'Notes on building picochem — a NumPy and CUDA transformer for chemistry.',
+  ogImage = '/images/og-default.png',
+  type = 'website',
+  pubDate,
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site || Astro.url.origin).toString();
+const fullTitle = title === 'picochem' ? title : `${title} — picochem`;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={new URL(ogImage, Astro.site || Astro.url.origin).toString()} />
+    {pubDate && <meta property="article:published_time" content={pubDate.toISOString()} />}
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+
+    <link rel="alternate" type="application/rss+xml" title="picochem" href="/rss.xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <script is:inline>
+      (function () {
+        try {
+          const stored = localStorage.getItem('theme');
+          if (stored === 'dark' || stored === 'light') {
+            document.documentElement.setAttribute('data-theme', stored);
+          } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+
+    <ClientRouter />
+  </head>
+  <body>
+    <Header />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>
