@@ -10,121 +10,168 @@ const fmt = (d: Date) =>
 ---
 
 <BaseLayout title="picochem">
-  <section class="hero container">
-    <p class="kicker">picochem</p>
-    <h1 class="lede">
-      Notes on building a chemistry transformer from first principles —
-      in NumPy, then in CUDA.
-    </h1>
-    <p class="intro text-muted">
-      <em>picochem</em> is an encoder-decoder transformer that translates between
-      SMILES strings and IUPAC names. It was implemented twice: once in pure
-      NumPy to understand every gradient, and once with hand-written CUDA
-      kernels to understand where the FLOPs actually go. These posts are
-      placeholders for write-ups of each stage of the project; replace this
-      copy when the work is ready to publish.
-    </p>
-  </section>
+  <main class="home">
+    <section class="hero">
+      <p class="eyebrow">Project — Connectionism</p>
+      <h1 class="hero-title">
+        Notes on building a chemistry transformer from first principles,
+        in NumPy and then in&nbsp;CUDA.
+      </h1>
+      <p class="hero-lede">
+        <em>picochem</em> is an encoder-decoder transformer that translates
+        between SMILES strings and IUPAC names. It was implemented twice:
+        once in pure NumPy to understand every gradient, and once with
+        hand-written CUDA kernels to understand where the FLOPs actually go.
+        These posts are placeholders for write-ups of each stage of the
+        project; replace this copy when the work is ready to&nbsp;publish.
+      </p>
 
-  <section class="posts container">
-    <h2 class="section-label">Writing</h2>
-    <ul class="post-list">
-      {posts.map((post) => (
-        <li class="post-row">
-          <a class="post-link" href={`/blog/${post.id}/`}>
-            <span class="post-date">{fmt(post.data.pubDate)}</span>
-            <span class="post-title">{post.data.title}</span>
-            <span class="post-desc">{post.data.description}</span>
-          </a>
-        </li>
-      ))}
-    </ul>
-  </section>
+      <figure class="hero-figure" aria-hidden="true">
+        <svg viewBox="0 0 880 280" width="880" height="280" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse">
+              <path d="M 22 0 L 0 0 0 22" fill="none" stroke="var(--rule)" stroke-width="0.5"/>
+            </pattern>
+          </defs>
+          <rect width="880" height="280" fill="url(#grid)"/>
+          <g fill="none" stroke="var(--accent)" stroke-width="1.4">
+            <circle cx="240" cy="140" r="46"/>
+            <circle cx="360" cy="100" r="32"/>
+            <circle cx="360" cy="180" r="32"/>
+            <circle cx="500" cy="140" r="46"/>
+            <line x1="282" y1="124" x2="332" y2="108"/>
+            <line x1="282" y1="156" x2="332" y2="172"/>
+            <line x1="388" y1="108" x2="458" y2="124"/>
+            <line x1="388" y1="172" x2="458" y2="156"/>
+            <line x1="240" y1="50" x2="240" y2="94"/>
+            <line x1="500" y1="186" x2="500" y2="230"/>
+            <line x1="546" y1="140" x2="640" y2="140"/>
+          </g>
+          <g fill="var(--fg4)" font-family="var(--font-mono)" font-size="10" letter-spacing="0.8">
+            <text x="240" y="40">SMILES</text>
+            <text x="500" y="246">IUPAC</text>
+            <text x="680" y="144">⟶ tokens</text>
+          </g>
+        </svg>
+      </figure>
+    </section>
+
+    <section class="writing">
+      <header class="section-head">
+        <p class="eyebrow">Writing</p>
+        <p class="section-count text-faint text-smaller">{posts.length} posts</p>
+      </header>
+
+      <ul class="post-list">
+        {posts.map((post) => (
+          <li class="post-row">
+            <a class="post-link" href={`/blog/${post.id}/`}>
+              <time class="post-date" datetime={post.data.pubDate.toISOString()}>{fmt(post.data.pubDate)}</time>
+              <span class="post-title">{post.data.title}</span>
+              <span class="post-desc">{post.data.description}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </main>
 </BaseLayout>
 
 <style>
-  .hero { padding: 4rem 1.5rem 3rem; max-width: var(--measure); }
-  .kicker {
-    font-family: var(--font-sans);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-size: 0.72rem;
-    color: var(--text-subtle);
-    margin-bottom: 1.25rem;
-  }
-  .lede {
-    font-family: var(--font-serif);
-    font-weight: 400;
-    font-size: clamp(1.45rem, 3.2vw, 1.95rem);
-    line-height: 1.3;
-    letter-spacing: -0.01em;
-    color: var(--text);
-    margin-bottom: 1.75rem;
-    text-wrap: balance;
-  }
-  .intro {
-    font-family: var(--font-serif);
-    font-size: 1.05rem;
-    line-height: 1.7;
+  .home {
+    max-width: var(--measure-wide);
+    margin: 0 auto;
+    padding: 3rem var(--gutter) 2rem;
   }
 
-  .posts { padding: 2rem 1.5rem 4rem; max-width: var(--measure); }
-  .section-label {
-    font-family: var(--font-sans);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--text-subtle);
-    font-weight: 500;
-    margin-bottom: 1.5rem;
-    border-bottom: 1px solid var(--rule);
-    padding-bottom: 0.75rem;
+  .hero { max-width: 720px; margin: 0 auto 4rem; }
+  .hero .eyebrow { margin-bottom: 1.25rem; }
+  .hero-title {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: clamp(1.55rem, 3vw, 2rem);
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--fg);
+    margin: 0 0 1.25rem;
+    text-wrap: balance;
   }
-  .post-list { list-style: none; padding: 0; margin: 0; }
-  .post-row {
+  .hero-lede {
+    font-family: var(--font-serif);
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--fg2);
+    margin-bottom: 2.5rem;
+  }
+  .hero-figure {
+    max-width: 100%;
     margin: 0;
+  }
+  .hero-figure svg {
+    width: 100%;
+    height: auto;
+    background: var(--bg_s);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
     padding: 0;
+  }
+
+  /* Writing list */
+  .writing { max-width: 720px; margin: 0 auto; }
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding-bottom: 0.65rem;
+    margin-bottom: 0.5rem;
     border-bottom: 1px solid var(--rule);
   }
+
+  .post-list { list-style: none; padding: 0; margin: 0; }
+  .post-row { border-bottom: 1px solid var(--rule); margin: 0; }
   .post-row:last-child { border-bottom: 0; }
   .post-link {
     display: grid;
-    grid-template-columns: 100px 1fr;
-    gap: 0.25rem 1.5rem;
-    padding: 1.25rem 0;
-    border-bottom: 0;
-    color: var(--text);
+    grid-template-columns: 88px 1fr;
+    gap: 0.2rem 1.4rem;
+    padding: 1rem 0;
+    text-decoration: none;
+    color: var(--fg);
     align-items: baseline;
   }
-  .post-link:hover { color: var(--accent); }
   .post-link:hover .post-title { color: var(--accent); }
   .post-date {
-    font-family: var(--font-sans);
-    font-size: 0.8rem;
-    color: var(--text-subtle);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--fg4);
     grid-column: 1;
     grid-row: 1;
+    padding-top: 0.15em;
   }
   .post-title {
     font-family: var(--font-sans);
     font-weight: 500;
-    font-size: 1.02rem;
-    color: var(--text);
+    font-size: 16px;
+    color: var(--fg);
     grid-column: 2;
     grid-row: 1;
-    transition: color 120ms;
+    transition: color 200ms;
+    letter-spacing: -0.005em;
   }
   .post-desc {
     font-family: var(--font-serif);
-    font-size: 0.95rem;
-    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--fg3);
     grid-column: 2;
     grid-row: 2;
-    line-height: 1.55;
+    margin-top: 0.1rem;
   }
 
   @media (max-width: 600px) {
-    .post-link { grid-template-columns: 1fr; gap: 0.15rem; }
+    .post-link { grid-template-columns: 1fr; gap: 0.1rem; }
     .post-date, .post-title, .post-desc { grid-column: 1; }
     .post-date { grid-row: 1; }
     .post-title { grid-row: 2; }
