@@ -1,0 +1,53 @@
+---
+title: "What Does a Chemistry Transformer Learn?"
+description: "Probing picochem's representations: which features are linearly decodable, how faithful those probes are, and where the model breaks."
+pubDate: 2026-05-11
+author: "Arjun Virk"
+---
+
+import Figure from '../../components/Figure.astro';
+import Footnote from '../../components/Footnote.astro';
+
+*Placeholder content.*
+
+## Methodology
+
+A short summary of the interpretability methods I'll use: linear probes,
+attention-pattern inspection, and ablation studies. Each is paired with a
+faithfulness check so we don't over-read the results.
+
+## Linear probing
+
+Train a linear classifier on each layer's hidden states for a handful of
+chemically meaningful targets: ring count, aromaticity, presence of a
+stereocenter, halogen identity.
+
+| Target           | Best layer | Probe accuracy |
+| ---------------- | ---------- | -------------- |
+| Ring count       | TBD        | TBD            |
+| Aromaticity      | TBD        | TBD            |
+| Stereocenter     | TBD        | TBD            |
+
+## Faithfulness
+
+A linear probe says a feature is *decodable*, not that the model *uses*
+it. To check faithfulness, ablate the probe direction at inference and see
+whether downstream behavior actually changes.<Footnote id="1">See e.g. Elazar et al., "Amnesic Probing" (2021) — projecting out the probe direction is a much stronger test than the probe accuracy alone.</Footnote>
+
+## Failure taxonomy
+
+Where the model breaks, qualitatively:
+- Heavily fused polycyclics (locant disagreement)
+- Long aliphatic chains beyond training length
+- Rare halogen substitution patterns
+
+<Figure
+  src="/images/placeholder-failure-grid.svg"
+  alt="failure case grid"
+  caption="Placeholder: a grid of structures the model gets wrong, grouped by failure mode."
+/>
+
+## Discussion
+
+A short reflection on what this exercise did and did not teach me — and
+what would be worth trying next on a larger model.

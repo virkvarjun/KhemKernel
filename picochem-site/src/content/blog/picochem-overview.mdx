@@ -1,0 +1,66 @@
+---
+title: "Building a Chemistry Transformer from Scratch"
+description: "An overview of picochem — an encoder-decoder transformer for SMILES↔IUPAC translation, implemented twice: once in pure NumPy, once in CUDA."
+pubDate: 2026-04-12
+author: "Arjun Virk"
+---
+
+import Figure from '../../components/Figure.astro';
+import Footnote from '../../components/Footnote.astro';
+
+*This is a placeholder. Replace each section with the real write-up when the
+project is ready to publish.*
+
+## The problem
+
+Translating between SMILES strings and IUPAC names is a useful sandbox
+problem: it has a clear ground truth, a long tail of edge cases (stereochemistry,
+ring fusions, locant ambiguity), and a vocabulary small enough to make full
+attention tractable at modest model sizes.<Footnote id="1">SMILES, by Weininger (1988), encodes a molecule as a string; IUPAC names follow a deterministic but complex set of rules.</Footnote>
+
+The goal of *picochem* was less about beating any benchmark and more about
+owning every line of the stack: tokenizer, ops library, attention, backward
+pass, training loop, and — eventually — the CUDA kernels underneath.
+
+## Approach
+
+Two implementations of the same model:
+
+1. A **pure-NumPy** version with hand-derived gradients for every layer.
+2. A **CUDA** version with hand-written kernels for matmul, softmax, layer
+   norm, and (eventually) FlashAttention.
+
+Both targets share the same weights and the same tokenizer, so we can sanity-
+check one against the other at every step.
+
+<Figure
+  src="/images/placeholder-architecture.svg"
+  alt="picochem architecture sketch"
+  caption="Placeholder for an architecture diagram: encoder, decoder, cross-attention."
+/>
+
+## Architecture
+
+Standard encoder-decoder transformer. Six layers each side, eight heads, a
+model dimension of 384. Sinusoidal positional embeddings, tied input and
+output embeddings on the decoder side.
+
+| Component   | Detail                                |
+| ----------- | ------------------------------------- |
+| Encoder     | 6 layers, 8 heads, d=384              |
+| Decoder     | 6 layers, 8 heads, d=384, masked      |
+| Vocabulary  | 1,024 BPE tokens (shared)             |
+| Parameters  | ~22M                                  |
+| Optimizer   | AdamW, cosine schedule with warmup    |
+
+## Results
+
+*To be filled in once training is complete.* Plan: token-level accuracy,
+exact-match accuracy, and a small qualitative section showing failure cases
+on stereocenters.
+
+## What's next
+
+- Push the CUDA kernels through the full forward pass.
+- Add FlashAttention-style streaming softmax for longer sequences.
+- A small interpretability section: which heads attend to ring closures?

@@ -1,0 +1,65 @@
+---
+title: "Writing CUDA Kernels for Transformer Operations"
+description: "From `vector_add` to a tiled matmul that's within 2× of cuBLAS — what I learned about the GPU memory hierarchy by trying to feed it."
+pubDate: 2026-05-02
+author: "Arjun Virk"
+---
+
+import Figure from '../../components/Figure.astro';
+import Footnote from '../../components/Footnote.astro';
+
+*Placeholder content.*
+
+## GPU basics
+
+A short refresher on the bits that actually matter for kernel writing:
+warps, shared memory, the difference between global and local memory, and
+the L2 cache.
+
+## Vector add
+
+The "hello world" kernel:
+
+```cpp
+__global__ void vector_add(const float* a, const float* b, float* c, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) c[i] = a[i] + b[i];
+}
+```
+
+This already gets you within shouting distance of memory bandwidth on small
+arrays. The interesting thing is what changes when you go bigger.
+
+## Tiled matmul
+
+Naive matmul is bandwidth-limited. A tiled version that stages submatrices
+through shared memory turns it into an arithmetic-intensity problem
+instead.<Footnote id="1">For a tile of size T×T, each global load is reused T times. The compute-to-memory ratio scales with T, until you run out of registers.</Footnote>
+
+Plan to walk through: tile size selection, padding for bank conflicts,
+double-buffering, and the surprising amount of performance left on the
+table by *not* using tensor cores.
+
+## Softmax
+
+A numerically stable softmax in a single kernel — the trick is the running
+max-subtraction.
+
+## Layer norm
+
+Easier than softmax (no normalization across rows of different batches).
+Mostly an exercise in reductions.
+
+## Benchmarks
+
+| Kernel       | Naive (ms) | Mine (ms) | cuBLAS / cuDNN (ms) |
+| ------------ | ---------- | --------- | ------------------- |
+| matmul 1024² | TBD        | TBD       | TBD                 |
+| softmax      | TBD        | TBD       | TBD                 |
+| layer norm   | TBD        | TBD       | TBD                 |
+
+<Figure
+  src="/images/placeholder-bench.svg"
+  alt="kernel benchmark chart"
+  caption="Placeholder for kernel benchmark bars vs. cuBLAS / cuDNN."
+/>

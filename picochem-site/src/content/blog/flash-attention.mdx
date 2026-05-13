@@ -1,0 +1,53 @@
+---
+title: "FlashAttention from Scratch"
+description: "Implementing the online-softmax attention algorithm by hand — what the paper actually says, what the diagrams hide, and the off-by-ones I hit."
+pubDate: 2026-05-08
+author: "Arjun Virk"
+---
+
+import Figure from '../../components/Figure.astro';
+import Footnote from '../../components/Footnote.astro';
+
+*Placeholder content.*
+
+## The memory problem
+
+The attention matrix is O(N²) in sequence length. For N=4k that's already
+16M entries — at fp32, 64MB per attention layer per batch element. The
+attention compute is *fine*; the problem is materializing that matrix in
+HBM and reading it back twice (once for softmax, once for the weighted sum).
+
+## Online softmax
+
+The key insight: softmax can be computed in a streaming pass with two
+running statistics — the max so far and the running sum of `exp(x − m)`.
+When a new block arrives with a larger max, rescale the running sum.
+
+```python
+def online_softmax_update(m, l, x):
+    m_new = max(m, x.max())
+    l_new = l * exp(m - m_new) + exp(x - m_new).sum()
+    return m_new, l_new
+```
+
+<Footnote id="1">This is the same trick used in numerically stable logsumexp, generalized to a block-by-block reduction.</Footnote>
+
+## The algorithm
+
+FlashAttention combines online softmax with a tiled traversal of Q, K, and
+V. The outer loop is over K/V blocks; the inner loop accumulates a running
+output `O` and the running softmax statistics `(m, l)`.
+
+## Implementation
+
+The CUDA kernel maps one block of Q rows to one threadblock; each
+threadblock iterates over the K/V blocks. Shared memory holds the K and V
+tiles; registers hold the running statistics.
+
+## Benchmarks
+
+<Figure
+  src="/images/placeholder-flash-bench.svg"
+  alt="flash attention benchmark"
+  caption="Placeholder: latency vs. sequence length, plain attention vs. FlashAttention."
+/>

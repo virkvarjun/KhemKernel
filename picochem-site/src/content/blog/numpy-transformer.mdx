@@ -1,0 +1,62 @@
+---
+title: "Implementing a Transformer in Pure NumPy"
+description: "Notes on writing a working encoder-decoder transformer with no autograd: every gradient by hand, every shape doubled-checked."
+pubDate: 2026-04-20
+author: "Arjun Virk"
+---
+
+import Figure from '../../components/Figure.astro';
+import Footnote from '../../components/Footnote.astro';
+
+*Placeholder content. Each section is a stub for the actual write-up.*
+
+## Why from scratch
+
+PyTorch and JAX make transformers easy in a way that hides whether you
+understand them. Re-implementing in NumPy is a forcing function: every
+broadcast, every gradient, every numerical quirk has to be confronted
+explicitly.
+
+## The ops library
+
+A small set of differentiable primitives:
+
+```python
+def linear(x, W, b):
+    return x @ W + b
+
+def linear_backward(dY, x, W):
+    dW = x.T @ dY
+    db = dY.sum(axis=0)
+    dX = dY @ W.T
+    return dX, dW, db
+```
+
+Each op has a paired backward function. The training loop walks the graph
+manually — slow, but unambiguous.
+
+## Attention
+
+Scaled dot-product attention is three matmuls and a softmax. The gotcha is
+the backward pass through softmax: it's a Jacobian-vector product, not just
+elementwise.
+
+<Footnote id="1">The Jacobian of softmax is dense: <code>∂s_i/∂x_j = s_i(δ_ij − s_j)</code>. The backward op collapses this to a single contraction.</Footnote>
+
+## Backward pass
+
+I'll write up the full derivation of the backward through multi-head
+attention here, including the masking term and the residual + layer-norm
+recipe.
+
+## Overfit test
+
+The classic sanity check: take a single batch, train it for 1,000 steps,
+and confirm the loss collapses near zero. If it doesn't, the gradients are
+wrong.
+
+<Figure
+  src="/images/placeholder-overfit.svg"
+  alt="overfit loss curve"
+  caption="Placeholder loss curve from the single-batch overfit test."
+/>
