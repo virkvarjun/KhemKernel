@@ -1,0 +1,296 @@
+/* ----- Fonts (loaded via @fontsource-variable packages) ----- */
+@import '@fontsource-variable/source-serif-4';
+@import '@fontsource-variable/inter';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
+/* ----- Design tokens ----- */
+:root {
+  --bg: #fafaf7;
+  --bg-elevated: #f4f3ed;
+  --text: #1a1a1a;
+  --text-muted: #5a5a5a;
+  --text-subtle: #8a8a85;
+  --rule: #e6e4dc;
+  --accent: #2d5a3d;
+  --accent-hover: #1f4029;
+  --code-bg: #f1efe8;
+  --code-border: #e6e4dc;
+  --selection: #d4dfd0;
+
+  --font-serif: 'Source Serif 4 Variable', 'Source Serif Pro', 'Iowan Old Style',
+    'Apple Garamond', Georgia, serif;
+  --font-sans: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --measure: 720px;
+  --measure-wide: 880px;
+  --gutter: 1.5rem;
+}
+
+[data-theme='dark'] {
+  --bg: #15171a;
+  --bg-elevated: #1c1f23;
+  --text: #e8e6df;
+  --text-muted: #a5a39c;
+  --text-subtle: #6f6d67;
+  --rule: #2a2d31;
+  --accent: #7fb893;
+  --accent-hover: #a4cdb3;
+  --code-bg: #1c1f23;
+  --code-border: #2a2d31;
+  --selection: #2d4534;
+}
+
+/* ----- Reset ----- */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd { margin: 0; }
+ul[role='list'], ol[role='list'] { list-style: none; }
+img, picture, svg { max-width: 100%; display: block; }
+input, button, textarea, select { font: inherit; color: inherit; }
+
+::selection { background: var(--selection); }
+
+/* ----- Base ----- */
+html {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-feature-settings: 'kern', 'liga', 'onum';
+}
+
+main { flex: 1; }
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  transition: color 120ms ease, border-color 120ms ease;
+}
+a:hover { color: var(--accent-hover); border-bottom-color: var(--accent-hover); }
+
+/* ----- Typography ----- */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: var(--text);
+}
+h1 { font-size: 2.25rem; letter-spacing: -0.02em; }
+h2 { font-size: 1.5rem; margin: 3rem 0 1rem; }
+h3 { font-size: 1.2rem; margin: 2rem 0 0.75rem; }
+h4 { font-size: 1rem; margin: 1.5rem 0 0.5rem; }
+
+p { margin: 0 0 1.15rem; }
+p + p { margin-top: 0; }
+
+strong { font-weight: 600; }
+em { font-style: italic; }
+
+ul, ol { padding-left: 1.5rem; margin: 0 0 1.15rem; }
+li { margin-bottom: 0.35rem; }
+li > ul, li > ol { margin-top: 0.35rem; margin-bottom: 0.35rem; }
+
+blockquote {
+  border-left: 2px solid var(--rule);
+  padding: 0.25rem 0 0.25rem 1.25rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 1.5rem 0;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: 3rem auto;
+  max-width: 6rem;
+}
+
+/* ----- Code ----- */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+pre {
+  font-family: var(--font-mono);
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  padding: 1rem 1.15rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin: 1.5rem 0;
+}
+pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+[data-theme='dark'] .astro-code,
+[data-theme='dark'] .astro-code span { color: var(--shiki-dark) !important; background-color: var(--shiki-dark-bg) !important; }
+
+/* ----- Tables ----- */
+.prose table, table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  margin: 1.75rem 0;
+}
+.prose th, .prose td, table th, table td {
+  text-align: left;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--rule);
+}
+.prose th, table th {
+  font-weight: 600;
+  border-bottom: 2px solid var(--text);
+  color: var(--text);
+}
+.prose tr:last-child td { border-bottom: 0; }
+
+/* ----- Anchor links on headings ----- */
+.prose h2, .prose h3, .prose h4 {
+  position: relative;
+  scroll-margin-top: 2rem;
+}
+.prose a.anchor-link {
+  position: absolute;
+  left: -1.5rem;
+  top: 0.05em;
+  color: var(--text-subtle);
+  border: 0;
+  opacity: 0;
+  transition: opacity 100ms ease;
+  font-family: var(--font-sans);
+  font-weight: 400;
+  text-decoration: none;
+}
+.prose h2:hover a.anchor-link,
+.prose h3:hover a.anchor-link,
+.prose h4:hover a.anchor-link { opacity: 1; }
+.prose a.anchor-link:hover { color: var(--accent); }
+
+/* ----- Layout containers ----- */
+.container {
+  width: 100%;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+.container-wide {
+  width: 100%;
+  max-width: var(--measure-wide);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+/* ----- Prose ----- */
+.prose {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+.prose > * { max-width: var(--measure); margin-left: auto; margin-right: auto; }
+.prose figure, .prose .full-bleed { max-width: var(--measure-wide); }
+
+/* ----- Figures ----- */
+figure {
+  margin: 2rem 0;
+}
+figure img { border-radius: 3px; border: 1px solid var(--rule); }
+figcaption {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 0.6rem;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ----- Footnotes ----- */
+.footnote-ref {
+  font-family: var(--font-sans);
+  font-size: 0.7em;
+  font-weight: 500;
+  vertical-align: super;
+  line-height: 0;
+  color: var(--accent);
+  border-bottom: 0;
+  padding: 0 0.1em;
+}
+.footnote-ref:hover { color: var(--accent-hover); }
+
+.footnotes {
+  border-top: 1px solid var(--rule);
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.footnotes ol { padding-left: 1.25rem; }
+.footnotes li { margin-bottom: 0.6rem; }
+.footnote-backref { font-family: var(--font-sans); font-size: 0.85em; margin-left: 0.25rem; }
+
+/* ----- Citation ----- */
+.citation-block {
+  background: var(--bg-elevated);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  margin: 2rem 0;
+  white-space: pre-wrap;
+  position: relative;
+}
+.citation-block .copy-btn {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.25rem 0.55rem;
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+.citation-block .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ----- Utility ----- */
+.text-muted { color: var(--text-muted); }
+.text-sans { font-family: var(--font-sans); }
+.text-small { font-size: 0.9rem; }
+.text-smaller { font-size: 0.8rem; }
+
+/* ----- Reduced motion ----- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
