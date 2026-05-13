@@ -1,0 +1,58 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="About" description="About picochem and its author.">
+  <section class="container about">
+    <h1>About</h1>
+
+    <div class="prose">
+      <p>
+        <em>picochem</em> is a personal project: a small encoder-decoder
+        transformer for SMILES↔IUPAC translation, built from scratch first in
+        pure NumPy and then with hand-written CUDA kernels. The goal was to
+        own every line of the stack — tokenizer, ops library, attention,
+        backward pass, kernels — so that nothing about a transformer felt like
+        a black box.
+      </p>
+
+      <p>
+        This site collects the write-ups. It is intentionally low on
+        ornament: prose, code, a few figures, and citations. If you find
+        anything wrong or unclear, I'd like to hear about it.
+      </p>
+
+      <h2>About me</h2>
+      <p>
+        I'm <strong>Arjun Virk</strong>. <em>(Placeholder — edit this paragraph
+        with a short bio: where you study or work, what you care about, and
+        anything that gives context to the picochem project.)</em>
+      </p>
+
+      <h2>Elsewhere</h2>
+      <ul>
+        <li><a href="https://github.com/" target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="mailto:virkvarjun@gmail.com">Email</a></li>
+      </ul>
+
+      <h2>Colophon</h2>
+      <p class="text-small text-muted">
+        Built with <a href="https://astro.build" target="_blank" rel="noopener">Astro</a>.
+        Body text is set in Source Serif 4; headings and UI in Inter; code in
+        JetBrains Mono. The accent color is a muted forest green
+        (<code>#2d5a3d</code>). The whole site is static and weighs
+        approximately nothing.
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .about { padding: 3rem 1.5rem 2rem; max-width: var(--measure); }
+  .about h1 {
+    font-family: var(--font-sans);
+    font-size: 2rem;
+    margin-bottom: 1.75rem;
+    letter-spacing: -0.02em;
+  }
+</style>

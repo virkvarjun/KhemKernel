@@ -1,0 +1,133 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+const fmt = (d: Date) =>
+  d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+---
+
+<BaseLayout title="picochem">
+  <section class="hero container">
+    <p class="kicker">picochem</p>
+    <h1 class="lede">
+      Notes on building a chemistry transformer from first principles —
+      in NumPy, then in CUDA.
+    </h1>
+    <p class="intro text-muted">
+      <em>picochem</em> is an encoder-decoder transformer that translates between
+      SMILES strings and IUPAC names. It was implemented twice: once in pure
+      NumPy to understand every gradient, and once with hand-written CUDA
+      kernels to understand where the FLOPs actually go. These posts are
+      placeholders for write-ups of each stage of the project; replace this
+      copy when the work is ready to publish.
+    </p>
+  </section>
+
+  <section class="posts container">
+    <h2 class="section-label">Writing</h2>
+    <ul class="post-list">
+      {posts.map((post) => (
+        <li class="post-row">
+          <a class="post-link" href={`/blog/${post.id}/`}>
+            <span class="post-date">{fmt(post.data.pubDate)}</span>
+            <span class="post-title">{post.data.title}</span>
+            <span class="post-desc">{post.data.description}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</BaseLayout>
+
+<style>
+  .hero { padding: 4rem 1.5rem 3rem; max-width: var(--measure); }
+  .kicker {
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    color: var(--text-subtle);
+    margin-bottom: 1.25rem;
+  }
+  .lede {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    font-size: clamp(1.45rem, 3.2vw, 1.95rem);
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    margin-bottom: 1.75rem;
+    text-wrap: balance;
+  }
+  .intro {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    line-height: 1.7;
+  }
+
+  .posts { padding: 2rem 1.5rem 4rem; max-width: var(--measure); }
+  .section-label {
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-subtle);
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 0.75rem;
+  }
+  .post-list { list-style: none; padding: 0; margin: 0; }
+  .post-row {
+    margin: 0;
+    padding: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .post-row:last-child { border-bottom: 0; }
+  .post-link {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 0.25rem 1.5rem;
+    padding: 1.25rem 0;
+    border-bottom: 0;
+    color: var(--text);
+    align-items: baseline;
+  }
+  .post-link:hover { color: var(--accent); }
+  .post-link:hover .post-title { color: var(--accent); }
+  .post-date {
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    color: var(--text-subtle);
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .post-title {
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 1.02rem;
+    color: var(--text);
+    grid-column: 2;
+    grid-row: 1;
+    transition: color 120ms;
+  }
+  .post-desc {
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    grid-column: 2;
+    grid-row: 2;
+    line-height: 1.55;
+  }
+
+  @media (max-width: 600px) {
+    .post-link { grid-template-columns: 1fr; gap: 0.15rem; }
+    .post-date, .post-title, .post-desc { grid-column: 1; }
+    .post-date { grid-row: 1; }
+    .post-title { grid-row: 2; }
+    .post-desc { grid-row: 3; }
+  }
+</style>
