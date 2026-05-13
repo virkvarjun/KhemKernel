@@ -3,19 +3,22 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 
 <BaseLayout title="About" description="About picochem and its author.">
-  <section class="container about">
-    <h1>About</h1>
+  <main class="about">
+    <header class="about-head">
+      <p class="eyebrow">About</p>
+      <h1>The project, the author, and how the site is built.</h1>
+    </header>
 
-    <div class="prose">
+    <article class="prose">
+      <h2>The project</h2>
       <p>
         <em>picochem</em> is a personal project: a small encoder-decoder
         transformer for SMILES↔IUPAC translation, built from scratch first in
         pure NumPy and then with hand-written CUDA kernels. The goal was to
         own every line of the stack — tokenizer, ops library, attention,
-        backward pass, kernels — so that nothing about a transformer felt like
-        a black box.
+        backward pass, kernels — so that nothing about a transformer felt
+        like a black box.
       </p>
-
       <p>
         This site collects the write-ups. It is intentionally low on
         ornament: prose, code, a few figures, and citations. If you find
@@ -24,9 +27,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
       <h2>About me</h2>
       <p>
-        I'm <strong>Arjun Virk</strong>. <em>(Placeholder — edit this paragraph
-        with a short bio: where you study or work, what you care about, and
-        anything that gives context to the picochem project.)</em>
+        I'm <strong>Arjun Virk</strong>. <em>(Placeholder — replace this
+        paragraph with a short bio: where you study or work, what you care
+        about, and anything that gives context to the picochem project.)</em>
       </p>
 
       <h2>Elsewhere</h2>
@@ -38,21 +41,32 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <h2>Colophon</h2>
       <p class="text-small text-muted">
         Built with <a href="https://astro.build" target="_blank" rel="noopener">Astro</a>.
-        Body text is set in Source Serif 4; headings and UI in Inter; code in
-        JetBrains Mono. The accent color is a muted forest green
-        (<code>#2d5a3d</code>). The whole site is static and weighs
-        approximately nothing.
+        Body text is set in Source Serif 4 at 17px / 1.6; headings and UI in
+        Inter; code in JetBrains Mono. The accent is a muted forest green
+        (<code>#2d5a3d</code>); the background is a warm off-white
+        (<code>#faf8f5</code>). The whole site is static and weighs nearly
+        nothing.
       </p>
-    </div>
-  </section>
+    </article>
+  </main>
 </BaseLayout>
 
 <style>
-  .about { padding: 3rem 1.5rem 2rem; max-width: var(--measure); }
-  .about h1 {
-    font-family: var(--font-sans);
-    font-size: 2rem;
-    margin-bottom: 1.75rem;
-    letter-spacing: -0.02em;
+  .about {
+    max-width: var(--measure-prose);
+    margin: 0 auto;
+    padding: 3rem var(--gutter) 1rem;
+  }
+  .about-head { margin-bottom: 2rem; }
+  .about-head .eyebrow { margin-bottom: 0.75rem; }
+  .about-head h1 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: clamp(1.45rem, 2.5vw, 1.8rem);
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+    color: var(--fg);
+    margin: 0;
+    text-wrap: balance;
   }
 </style>
