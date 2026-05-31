@@ -12,11 +12,14 @@
 #include "layer_norm.h"
 #include "layer_norm_backward.h"
 #include "gelu.h"
+#include "cross_entropy.h"
 
 namespace py = pybind11;
 
 // float32 C-contiguous array type (forcecast handles contiguity automatically).
 using f32arr = py::array_t<float, py::array::c_style | py::array::forcecast>;
+// int32 C-contiguous array type (forcecast casts int64 numpy arrays down to int).
+using i32arr = py::array_t<int, py::array::c_style | py::array::forcecast>;
 
 static void require_ndim(const f32arr& a, int ndim, const char* name){
     if (static_cast<int>(a.ndim()) != ndim)
@@ -175,6 +178,37 @@ py::tuple py_layer_norm_backward(f32arr grad_y, f32arr x_hat, f32arr gamma, f32a
     return py::make_tuple(grad_x, grad_gamma, grad_beta);
 }
 
+// Softmax cross-entropy forward. logits (M,V), targets (M,) int.
+// Returns (loss, n_valid); pass n_valid back into the backward call.
+py::tuple py_cross_entropy_forward(f32arr logits, i32arr targets, int ignore_index){
+    require_ndim(logits, 2, "cross_entropy_forward logits");
+    require_ndim(targets, 1, "cross_entropy_forward targets");
+    int M = static_cast<int>(logits.shape(0));
+    int V = static_cast<int>(logits.shape(1));
+    if (static_cast<int>(targets.size()) != M)
+        throw std::runtime_error("cross_entropy_forward: targets length must equal logits rows");
+    float n_valid = 0.0f;
+    float loss = launch_cross_entropy_forward(logits.data(), targets.data(),
+                                              M, V, ignore_index, &n_valid);
+    return py::make_tuple(loss, n_valid);
+}
+
+// Softmax cross-entropy backward -> grad_logits (M,V).
+py::array_t<float> py_cross_entropy_backward(f32arr logits, i32arr targets,
+                                             int ignore_index, float n_valid,
+                                             float grad_loss){
+    require_ndim(logits, 2, "cross_entropy_backward logits");
+    require_ndim(targets, 1, "cross_entropy_backward targets");
+    int M = static_cast<int>(logits.shape(0));
+    int V = static_cast<int>(logits.shape(1));
+    if (static_cast<int>(targets.size()) != M)
+        throw std::runtime_error("cross_entropy_backward: targets length must equal logits rows");
+    auto grad = py::array_t<float>({M, V});
+    launch_cross_entropy_backward(logits.data(), targets.data(), grad.mutable_data(),
+                                  M, V, ignore_index, n_valid, grad_loss);
+    return grad;
+}
+
 PYBIND11_MODULE(picochem_cuda, m){
     m.doc() = "CUDA kernels for picochem (forward-pass only)";
     m.def("vector_add",   &py_vector_add,   "Element-wise float32 vector addition");
@@ -189,4 +223,8 @@ PYBIND11_MODULE(picochem_cuda, m){
           "Layer-norm backward -> (grad_x, grad_gamma, grad_beta) (float32)");
     m.def("gelu_forward",  &py_gelu_forward,  "GeLU forward, tanh approximation (float32)");
     m.def("gelu_backward", &py_gelu_backward, "GeLU backward, grad_x = grad_y·dy/dx (float32)");
+    m.def("cross_entropy_forward", &py_cross_entropy_forward,
+          "Softmax cross-entropy forward -> (loss, n_valid) (logits f32, targets int)");
+    m.def("cross_entropy_backward", &py_cross_entropy_backward,
+          "Softmax cross-entropy backward -> grad_logits (float32)");
 }

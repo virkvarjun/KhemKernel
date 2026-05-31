@@ -205,3 +205,25 @@ def test_layer_norm_backward_parity():
     np.testing.assert_allclose(gx, gx_ref, atol=1e-3)
     np.testing.assert_allclose(gg, gg_ref, atol=1e-2)
     np.testing.assert_allclose(gb, gb_ref, atol=1e-2)
+
+
+def test_cross_entropy_parity():
+    from picochem.ops import (
+        softmax_cross_entropy_forward, softmax_cross_entropy_backward,
+    )
+    M, V, ignore = 32, 200, -1
+    logits = rng.standard_normal((M, V)).astype(np.float32)
+    targets = rng.integers(0, V, size=M).astype(np.int32)
+    targets[::5] = ignore  # mask some rows
+
+    loss_ref, cache = softmax_cross_entropy_forward(
+        logits.astype(np.float64), targets, ignore_index=ignore
+    )
+    grad_ref, _ = softmax_cross_entropy_backward(1.0, cache)
+
+    loss, n_valid = picochem_cuda.cross_entropy_forward(logits, targets, ignore)
+    grad = picochem_cuda.cross_entropy_backward(logits, targets, ignore, n_valid, 1.0)
+
+    assert abs(loss - loss_ref) < 1e-3
+    assert n_valid == (targets != ignore).sum()
+    np.testing.assert_allclose(grad, grad_ref, atol=1e-4)
