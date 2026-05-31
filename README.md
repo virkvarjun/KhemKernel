@@ -19,6 +19,27 @@ pip install -e .
 
 `rdkit` installed via `pip install rdkit` (tested with rdkit==2026.3.1 on macOS arm64). GPU dependencies are listed but commented out in `requirements.txt` — install when entering the kernel phase.
 
+### Quickstart (fresh box / RunPod)
+
+On a clean pod with Python ≥ 3.10, the full pipeline from setup to a running
+job is:
+
+```bash
+bash scripts/setup_env.sh          # venv + deps + editable install
+source .venv/bin/activate
+python scripts/download_data.py    # data/raw_pairs.parquet  (streams from HF)
+python scripts/build_vocab.py      # data/smiles_vocab.json, data/iupac_vocab.json
+python scripts/generate_traces.py  # data/traces.parquet     (training targets)
+python scripts/train.py --data data/traces.parquet \
+    --d_model 256 --n_heads 4 --d_ff 1024 \
+    --n_enc_layers 3 --n_dec_layers 3 \
+    --total_steps 100000 --batch_size 32 --peak_lr 3e-4 --warmup_steps 2000
+```
+
+Training is pure NumPy (CPU); pick a high-core-count pod rather than a GPU one
+until the CUDA kernel phase. Run inside `tmux`/`nohup` so the job survives SSH
+drops, and resume after a restart with `python scripts/resume_training.py`.
+
 ## Data
 
 Download and filter 1M SMILES↔IUPAC pairs from PubChem (streams from HuggingFace, no full download):
@@ -49,13 +70,35 @@ Vocabularies saved to data/smiles_vocab.json and data/iupac_vocab.json
 
 SMILES uses the Schwaller et al. regex tokenizer (handles multi-char atoms like `[C@@H]`, `Cl`, `Br`). IUPAC is split on word boundaries, digits, and punctuation. Rare IUPAC tokens (< 5 occurrences) map to `<unk>`.
 
+## Reasoning traces
+
+Convert `raw_pairs.parquet` into the reasoning-trace targets the model is
+trained on (parent scaffold, functional groups, atom/ring counts, name):
+
+```bash
+python scripts/generate_traces.py
+```
+
+```
+Building traces: 100%|██████████| 1,000,000/1,000,000
+Generated traces: 1,000,000
+Saved to data/traces.parquet
+```
+
+Each trace looks like
+`<parent>benzene</parent><groups>none</groups><atoms>6</atoms><rings>1</rings><name>benzene</name>`.
+Training and evaluation both consume `data/traces.parquet`; the `<name>` tag is
+what OPSIN parses back to SMILES during eval. **Train on the traces file, not
+`raw_pairs.parquet`** — the raw names have no trace tags, so trace-validity
+would be 0%.
+
 ## How to run
 
 ### Fresh training run
 
 ```bash
 python scripts/train.py \
-    --data data/raw_pairs.parquet \
+    --data data/traces.parquet \
     --d_model 256 --n_heads 4 --d_ff 1024 \
     --n_enc_layers 3 --n_dec_layers 3 \
     --total_steps 100000 --batch_size 32 \

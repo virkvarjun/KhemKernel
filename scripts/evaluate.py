@@ -24,7 +24,7 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate a picochem checkpoint.")
     parser.add_argument("--checkpoint",   required=True,
                         help="Path to a .npz checkpoint file.")
-    parser.add_argument("--data",         default="data/raw_pairs.parquet")
+    parser.add_argument("--data",         default="data/traces.parquet")
     parser.add_argument("--smiles_vocab", default="data/smiles_vocab.json")
     parser.add_argument("--iupac_vocab",  default="data/iupac_vocab.json")
     parser.add_argument("--n_samples",    type=int, default=500)
