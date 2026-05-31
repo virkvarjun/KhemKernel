@@ -50,6 +50,45 @@ def test_matmul_tiled():
     np.testing.assert_allclose(out, expected, atol=1e-3)
 
 
+def test_matmul_dA():
+    """dA = dC @ Bᵀ for C = A @ B."""
+    M, K, N = 40, 24, 56
+    B = rng.standard_normal((K, N)).astype(np.float32)
+    dC = rng.standard_normal((M, N)).astype(np.float32)
+    expected = dC @ B.T
+    out = picochem_cuda.matmul_dA(dC, B)
+    assert out.shape == (M, K)
+    np.testing.assert_allclose(out, expected, atol=1e-3)
+
+
+def test_matmul_dB():
+    """dB = Aᵀ @ dC for C = A @ B."""
+    M, K, N = 40, 24, 56
+    A = rng.standard_normal((M, K)).astype(np.float32)
+    dC = rng.standard_normal((M, N)).astype(np.float32)
+    expected = A.T @ dC
+    out = picochem_cuda.matmul_dB(A, dC)
+    assert out.shape == (K, N)
+    np.testing.assert_allclose(out, expected, atol=1e-3)
+
+
+def test_matmul_backward_matches_linear_backward():
+    """End-to-end: the two kernels reproduce ops.linear_backward's grad_x/grad_W."""
+    from picochem.ops import linear_forward, linear_backward
+    M, K, N = 32, 48, 64
+    x = rng.standard_normal((M, K)).astype(np.float32)
+    W = rng.standard_normal((K, N)).astype(np.float32)
+    b = rng.standard_normal(N).astype(np.float32)
+    y, cache = linear_forward(x, W, b)
+    grad_y = rng.standard_normal((M, N)).astype(np.float32)
+    grad_x_ref, grad_W_ref, _ = linear_backward(grad_y, cache)
+    # grad_x = grad_y @ Wᵀ  (dA form);  grad_W = xᵀ @ grad_y  (dB form)
+    grad_x = picochem_cuda.matmul_dA(grad_y, W)
+    grad_W = picochem_cuda.matmul_dB(x, grad_y)
+    np.testing.assert_allclose(grad_x, grad_x_ref, atol=1e-2)
+    np.testing.assert_allclose(grad_W, grad_W_ref, atol=1e-2)
+
+
 def test_softmax_2d():
     M, N = 16, 100
     x = rng.standard_normal((M, N)).astype(np.float32)

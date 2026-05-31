@@ -52,7 +52,7 @@ print(f"CUDA home  : {cuda_home}")
 print(f"Output     : {output}")
 
 cu_sources = ["vector_add.cu", "matmul_naive.cu", "matmul_tiled.cu",
-              "softmax.cu", "layer_norm.cu"]
+              "matmul_backward.cu", "softmax.cu", "layer_norm.cu"]
 objects = []
 
 for src in cu_sources:

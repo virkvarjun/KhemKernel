@@ -3,7 +3,7 @@ CUDA_ARCH ?= sm_120
 NVCC_FLAGS = -O3 -arch=$(CUDA_ARCH) -std=c++17
 
 CUDA_DIR = cuda
-TARGETS   = vector_add matmul_naive matmul_tiled softmax layer_norm
+TARGETS   = vector_add matmul_naive matmul_tiled matmul_backward softmax layer_norm
 SOURCES   = $(addprefix $(CUDA_DIR)/, $(addsuffix .cu, $(TARGETS)))
 OBJECTS   = $(addprefix $(CUDA_DIR)/, $(addsuffix .o,  $(TARGETS)))
 

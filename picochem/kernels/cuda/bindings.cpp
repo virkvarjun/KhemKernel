@@ -6,6 +6,7 @@
 #include "vector_add.h"
 #include "matmul_naive.h"
 #include "matmul_tiled.h"
+#include "matmul_backward.h"
 #include "softmax.h"
 #include "layer_norm.h"
 
@@ -58,6 +59,34 @@ py::array_t<float> py_matmul_tiled(f32arr A, f32arr B){
     return C;
 }
 
+// Backward of C = A @ B.  Given dC and B, returns dA = dC @ Bᵀ, shape (M, K).
+py::array_t<float> py_matmul_dA(f32arr dC, f32arr B){
+    require_ndim(dC, 2, "matmul_dA dC");
+    require_ndim(B,  2, "matmul_dA B");
+    int M = static_cast<int>(dC.shape(0));
+    int N = static_cast<int>(dC.shape(1));
+    int K = static_cast<int>(B.shape(0));
+    if (static_cast<int>(B.shape(1)) != N)
+        throw std::runtime_error("matmul_dA: B.shape[1] must equal dC.shape[1]");
+    auto dA = py::array_t<float>({M, K});
+    launch_matmul_dA(dC.data(), B.data(), dA.mutable_data(), M, N, K);
+    return dA;
+}
+
+// Backward of C = A @ B.  Given A and dC, returns dB = Aᵀ @ dC, shape (K, N).
+py::array_t<float> py_matmul_dB(f32arr A, f32arr dC){
+    require_ndim(A,  2, "matmul_dB A");
+    require_ndim(dC, 2, "matmul_dB dC");
+    int M = static_cast<int>(A.shape(0));
+    int K = static_cast<int>(A.shape(1));
+    int N = static_cast<int>(dC.shape(1));
+    if (static_cast<int>(dC.shape(0)) != M)
+        throw std::runtime_error("matmul_dB: dC.shape[0] must equal A.shape[0]");
+    auto dB = py::array_t<float>({K, N});
+    launch_matmul_dB(A.data(), dC.data(), dB.mutable_data(), M, N, K);
+    return dB;
+}
+
 // Softmax along the last axis of any shape array.
 // Internally flattens to (M, N) where N = last dimension.
 py::array_t<float> py_softmax(f32arr x){
@@ -94,6 +123,8 @@ PYBIND11_MODULE(picochem_cuda, m){
     m.def("vector_add",   &py_vector_add,   "Element-wise float32 vector addition");
     m.def("matmul_naive", &py_matmul_naive, "Naive CUDA matmul (float32, 2-D inputs)");
     m.def("matmul_tiled", &py_matmul_tiled, "Tiled CUDA matmul (float32, 2-D inputs)");
+    m.def("matmul_dA",    &py_matmul_dA,    "Backward dA = dC @ Bᵀ for C = A @ B (float32)");
+    m.def("matmul_dB",    &py_matmul_dB,    "Backward dB = Aᵀ @ dC for C = A @ B (float32)");
     m.def("softmax",      &py_softmax,      "Row-wise softmax along last axis (float32)");
     m.def("layer_norm",   &py_layer_norm,   "Layer norm along last axis (float32)");
 }
