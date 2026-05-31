@@ -1,8 +1,8 @@
-"""Run picochem.traces over the dataset to produce reasoning-augmented training data.
+"""Generate chemistry reasoning traces for the full dataset.
 
-Output: data/traces.parquet
+Runs picochem.traces over data/raw_pairs.parquet and writes the
+reasoning-augmented training data to data/traces.parquet.
 """
-"""Generate chemistry reasoning traces for the full dataset."""
 
 import os
 
@@ -30,8 +30,8 @@ def main():
             skipped += 1
             continue
         traces.append({
-            "smiles": row["smiles"],
-            "iupac": row["iupac"],
+            "smiles": row["SMILES"],
+            "iupac": row["IUPAC"],
             "trace": trace,
         })
     
