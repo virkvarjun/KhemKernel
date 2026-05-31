@@ -5,9 +5,12 @@ reasoning-augmented training data to data/traces.parquet.
 """
 
 import os
+import sys
 
 import pandas as pd
 from tqdm import tqdm
+
+sys.path.insert(0, ".")
 
 from picochem.traces import build_trace
 

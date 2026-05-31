@@ -1,10 +1,13 @@
 """Scan training data, build character/token vocabularies, and write vocab files."""
 import json
 import os
+import sys
 from collections import Counter
 
 import pandas as pd
 from tqdm import tqdm
+
+sys.path.insert(0, ".")
 
 from picochem.data import tokenize_smiles, tokenize_iupac
 
