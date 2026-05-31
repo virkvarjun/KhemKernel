@@ -25,9 +25,9 @@ TRACE_TOKENS = [
     "<name>",   "</name>",
     ";",
 ]
-# <pad> - fills out short sequences in a a batch so they have the equal length 
+# <pad> - fills out short sequences in a a batch so they have the equal length
 # <start> - beginning of the iupac sequence we want decoder to generate
-# <end> - Tells the decoder to stop generating stuff 
+# <end> - Tells the decoder to stop generating stuff
 # <unk> - replaces tokens not in the vocabulary (i.e. rare tokens that we want to replace with a common token to avoid overfitting)
 
 def build_vocab(token_lists, min_freq=1, extra_tokens=None) -> dict[str, int]:
@@ -51,11 +51,11 @@ def build_vocab(token_lists, min_freq=1, extra_tokens=None) -> dict[str, int]:
     return {token: idx for idx, token in enumerate(vocab)}
 
 
-def main(): 
-    print(f"Loading {INPUT_PATH}") 
-    df = pd.read_parquet(INPUT_PATH) 
-    print(f"Loaded {len(df):,} pairs") 
-    print("\nTokenizing SMILES") 
+def main():
+    print(f"Loading {INPUT_PATH}")
+    df = pd.read_parquet(INPUT_PATH)
+    print(f"Loaded {len(df):,} pairs")
+    print("\nTokenizing SMILES")
     smiles_tokens = [tokenize_smiles(s) for s in tqdm(df["SMILES"])]
     print("Tokenizing IUPAC names...")
     iupac_tokens = [tokenize_iupac(s) for s in tqdm(df["IUPAC"])]
@@ -63,16 +63,16 @@ def main():
     smiles_vocab = build_vocab(smiles_tokens, min_freq=1)
     iupac_vocab  = build_vocab(iupac_tokens, min_freq=IUPAC_MIN_FREQ,
                                extra_tokens=TRACE_TOKENS)
-    
+
     print(f"\nSMILES vocab size: {len(smiles_vocab)}")
     print(f"IUPAC vocab size: {len(iupac_vocab)}")
 
     os.makedirs(os.path.dirname(SMILES_VOCAB_PATH), exist_ok=True)
-    with open(SMILES_VOCAB_PATH, "w") as f: 
-        json.dump(smiles_vocab, f, indent=2) 
-    with open(IUPAC_VOCAB_PATH, "w") as f: 
-        json.dump(iupac_vocab, f, indent=2) 
-    
+    with open(SMILES_VOCAB_PATH, "w") as f:
+        json.dump(smiles_vocab, f, indent=2)
+    with open(IUPAC_VOCAB_PATH, "w") as f:
+        json.dump(iupac_vocab, f, indent=2)
+
     print(f"\nVocabularies saved to {SMILES_VOCAB_PATH} and {IUPAC_VOCAB_PATH}")
 
 if __name__ == "__main__":

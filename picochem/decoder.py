@@ -1,5 +1,5 @@
 """Transformer decoder block and stacked decoder (masked self-attn + cross-attn)."""
-import numpy as np 
+import numpy as np
 from picochem.ops import layer_norm_forward, layer_norm_backward
 from picochem.attention import (
     multihead_self_attention_forward,
@@ -8,7 +8,7 @@ from picochem.attention import (
     multihead_cross_attention_backward,
 )
 from picochem.ffn import ffn_forward, ffn_backward
-def decoder_block_forward(x, encoder_output, params, n_heads, causal_mask=None, encoder_padding_mask=None): 
+def decoder_block_forward(x, encoder_output, params, n_heads, causal_mask=None, encoder_padding_mask=None):
     # x: (B, T, D)
     # encoder_output: (B, S, D)
     # params: dict with three sets of layer norms, self-attn weights,
@@ -16,42 +16,42 @@ def decoder_block_forward(x, encoder_output, params, n_heads, causal_mask=None, 
     # returns: (B, T, D), cache
 
     # Sub-layer 1: causal self-attention
-    x_norm1, ln1_cache = layer_norm_forward(x, params['ln1_gamma'], params['ln1_beta']) 
-    self_attn_out, self_attn_cache = multihead_self_attention_forward( 
+    x_norm1, ln1_cache = layer_norm_forward(x, params['ln1_gamma'], params['ln1_beta'])
+    self_attn_out, self_attn_cache = multihead_self_attention_forward(
          x_norm1,
         params['self_Wq'], params['self_Wk'], params['self_Wv'], params['self_Wo'],
         params['self_bq'], params['self_bk'], params['self_bv'], params['self_bo'],
         n_heads=n_heads, mask=causal_mask,
     )
-    x1 = x + self_attn_out 
-    
+    x1 = x + self_attn_out
+
     # Sub Layer 2: Cross-Attention
-    x_norm2, ln2_cache = layer_norm_forward(x1, params['ln2_gamma'], params['ln2_beta']) 
-    cross_attn_out, cross_attn_cache = multihead_cross_attention_forward( 
+    x_norm2, ln2_cache = layer_norm_forward(x1, params['ln2_gamma'], params['ln2_beta'])
+    cross_attn_out, cross_attn_cache = multihead_cross_attention_forward(
          x_norm2, encoder_output,
         params['cross_Wq'], params['cross_Wk'], params['cross_Wv'], params['cross_Wo'],
         params['cross_bq'], params['cross_bk'], params['cross_bv'], params['cross_bo'],
         n_heads=n_heads, mask=encoder_padding_mask,
     )
     x2 = x1 + cross_attn_out
-    
-    # Sub-Layer 3: FFN 
-    x_norm3, ln3_cache = layer_norm_forward(x2, params['ln3_gamma'], params['ln3_beta']) 
-    ffn_out, ffn_cache = ffn_forward( 
+
+    # Sub-Layer 3: FFN
+    x_norm3, ln3_cache = layer_norm_forward(x2, params['ln3_gamma'], params['ln3_beta'])
+    ffn_out, ffn_cache = ffn_forward(
         x_norm3, params['ffn_W1'], params['ffn_b1'],
         params['ffn_W2'], params['ffn_b2'],
     )
-    out = x2 + ffn_out 
-    
+    out = x2 + ffn_out
+
     cache = {
         'ln1': ln1_cache, 'self_attn': self_attn_cache,
         'ln2': ln2_cache, 'cross_attn': cross_attn_cache,
         'ln3': ln3_cache, 'ffn': ffn_cache,
-    } 
-    return out, cache 
+    }
+    return out, cache
 
-def decoder_block_backward(grad_out, cache): 
-    # Sub-layer 3: FFN 
+def decoder_block_backward(grad_out, cache):
+    # Sub-layer 3: FFN
     grad_ffn_out = grad_out
     grad_x2_residual = grad_out
     grad_x_norm3, grad_W1, grad_b1, grad_W2, grad_b2 = ffn_backward(grad_ffn_out, cache['ffn'])

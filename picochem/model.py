@@ -149,18 +149,18 @@ from picochem.ops import layer_norm_backward, softmax_cross_entropy_forward, sof
 
 
 def compute_loss(logits, targets, ignore_index=-1):
-    B, T, V = logits.shape 
-    logits_flat = logits.reshape(B*T, V) 
-    targets_flat = targets.reshape(B*T) 
-    loss, ce_cache = softmax_cross_entropy_forward(logits_flat, targets_flat, ignore_index) 
-    cache = (ce_cache, B, T, V) 
-    return loss, cache 
+    B, T, V = logits.shape
+    logits_flat = logits.reshape(B*T, V)
+    targets_flat = targets.reshape(B*T)
+    loss, ce_cache = softmax_cross_entropy_forward(logits_flat, targets_flat, ignore_index)
+    cache = (ce_cache, B, T, V)
+    return loss, cache
 
-def loss_backward(grad_loss, cache): 
-    ce_cache, B, T, V = cache 
-    grad_logits_flat, _ = softmax_cross_entropy_backward(grad_loss, ce_cache) 
-    grad_logits = grad_logits_flat.reshape(B, T, V) 
-    return grad_logits 
+def loss_backward(grad_loss, cache):
+    ce_cache, B, T, V = cache
+    grad_logits_flat, _ = softmax_cross_entropy_backward(grad_loss, ce_cache)
+    grad_logits = grad_logits_flat.reshape(B, T, V)
+    return grad_logits
 
 def model_backward(grad_logits, cache, params, config):
     B = cache['B']
@@ -228,22 +228,22 @@ def model_backward(grad_logits, cache, params, config):
 def greedy_decode(src_ids, src_mask, params, config,
                   start_token, end_token, pad_token,
                   max_length=200):
-    # Algorithm: 
+    # Algorithm:
     output = [start_token]
-    for _ in range(max_length - 1): 
-        # Current decoder input (1, T) 
+    for _ in range(max_length - 1):
+        # Current decoder input (1, T)
         tgt_ids = np.array([output], dtype=np.int32)
-        tgt_mask = np.ones_like(tgt_ids, dtype=np.float64) 
-        # Forward pass - only the last pos logits 
+        tgt_mask = np.ones_like(tgt_ids, dtype=np.float64)
+        # Forward pass - only the last pos logits
         logits, _ = model_forward(src_ids, tgt_ids, src_mask, tgt_mask, params, config)
-        next_logits = logits[0, -1] 
+        next_logits = logits[0, -1]
 
         # Greedy: pick argmax
-        next_token = int(np.argmax(next_logits)) 
-        output.append(next_token) 
+        next_token = int(np.argmax(next_logits))
+        output.append(next_token)
 
-        if next_token == end_token: 
-            break 
+        if next_token == end_token:
+            break
     return output
 
 def sample_decode(src_ids, src_mask, params, config,

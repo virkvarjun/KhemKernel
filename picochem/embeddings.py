@@ -1,12 +1,12 @@
-import numpy as np 
+import numpy as np
 
-def token_embedding_forward(token_ids, embed_table): 
-    # token_ids: (B, S) int 
-    # embed_table: (V, D) float 
-    # returns: (B, S, D) cache 
-    embeddings = embed_table[token_ids] 
-    cache = (token_ids, embed_table.shape) 
-    return embeddings, cache 
+def token_embedding_forward(token_ids, embed_table):
+    # token_ids: (B, S) int
+    # embed_table: (V, D) float
+    # returns: (B, S, D) cache
+    embeddings = embed_table[token_ids]
+    cache = (token_ids, embed_table.shape)
+    return embeddings, cache
 
 
 

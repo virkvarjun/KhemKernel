@@ -75,20 +75,20 @@ def detect_functional_groups(mol: Chem.Mol) -> list[str]:
 
 def build_trace(smiles: str, iupac: str) -> str | None:
     """Build a structured chemistry trace for a molecule.
-    
+
     Returns None if the SMILES is invalid (caller should skip).
     """
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return None
-    
+
     parent = detect_parent(mol)
     groups = detect_functional_groups(mol)
     n_atoms = mol.GetNumHeavyAtoms()
     n_rings = mol.GetRingInfo().NumRings()
-    
+
     groups_str = ";".join(groups) if groups else "none"
-    
+
     trace = (
         f"<parent>{parent}</parent>"
         f"<groups>{groups_str}</groups>"

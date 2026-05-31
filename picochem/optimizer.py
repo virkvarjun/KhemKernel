@@ -1,5 +1,5 @@
 """Adam optimizer with weight decay and optional learning-rate schedule."""
-import numpy as np 
+import numpy as np
 
 def init_adam_state(params):
     """Create m and v state mirroring the params structure."""
@@ -12,15 +12,15 @@ def init_adam_state(params):
     raise TypeError(f"Unsupported params type: {type(params)}")
 
 def adam_step(params, grads, state, step, lr=1e-3, beta1=0.9, beta2=0.999, eps=1e-8):
-    if isinstance(params, np.ndarray): 
-        g = grads 
-        s = state 
-        s['m'] = beta1 * s['m'] + (1-beta1)*g 
+    if isinstance(params, np.ndarray):
+        g = grads
+        s = state
+        s['m'] = beta1 * s['m'] + (1-beta1)*g
         s['v'] = beta2 * s['v'] + (1 - beta2) * (g ** 2)
         m_hat = s['m'] / (1 - beta1 ** step)
         v_hat = s['v'] / (1 - beta2 ** step)
         params -= lr * m_hat / (np.sqrt(v_hat) + eps)
-        return params 
+        return params
     if isinstance(params, dict):
         for key in params:
             params[key] = adam_step(params[key], grads[key], state[key], step, lr, beta1, beta2, eps)
@@ -33,9 +33,9 @@ def adam_step(params, grads, state, step, lr=1e-3, beta1=0.9, beta2=0.999, eps=1
 
     raise TypeError(f"Unsupported type: {type(params)}")
 
-# Gradient clipping 
-def clip_grad_norm(grads, max_norm): 
-    total_sq = 0.0 
+# Gradient clipping
+def clip_grad_norm(grads, max_norm):
+    total_sq = 0.0
     def accumulate(g):
         nonlocal total_sq
         if isinstance(g, np.ndarray):

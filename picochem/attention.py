@@ -116,7 +116,7 @@ def multihead_self_attention_backward(grad_out, cache):
 def multihead_cross_attention_forward(x_dec, x_enc, W_q, W_k, W_v, W_o,
                                        b_q, b_k, b_v, b_o, n_heads, mask=None):
     """Cross-attention: Q from decoder, K/V from encoder.
-    
+
     Args:
         x_dec: (B, T, D) decoder hidden state — provides Q
         x_enc: (B, S, D) encoder output — provides K, V
@@ -124,32 +124,32 @@ def multihead_cross_attention_forward(x_dec, x_enc, W_q, W_k, W_v, W_o,
         n_heads: number of heads
         mask: optional, shape broadcastable to (B, H, T, S). Typically a padding mask
               for the encoder side; no causal mask in cross-attention.
-    
+
     Returns:
         out: (B, T, D)
         cache: values needed for backward
     """
     B, T, D = x_dec.shape
     _, S, _ = x_enc.shape
-    H = n_heads 
-    Dh = D // H 
+    H = n_heads
+    Dh = D // H
 
-    # Q from decoder 
-    Q, q_cache = linear_forward(x_dec.reshape(B*T, D), W_q, b_q) 
-    # K, V from decoder 
-    K, k_cache = linear_forward(x_enc.reshape(B*S, D), W_k, b_k) 
-    V, v_cache = linear_forward(x_enc.reshape(B*S, D), W_v, b_v) 
-    
-    # Reshape and split heads 
-    Q = Q.reshape(B, T, H, Dh).transpose(0, 2, 1, 3) 
-    K = K.reshape(B, S, H, Dh).transpose(0, 2, 1, 3) 
-    V = V.reshape(B, S, H, Dh).transpose(0, 2, 1, 3) 
+    # Q from decoder
+    Q, q_cache = linear_forward(x_dec.reshape(B*T, D), W_q, b_q)
+    # K, V from decoder
+    K, k_cache = linear_forward(x_enc.reshape(B*S, D), W_k, b_k)
+    V, v_cache = linear_forward(x_enc.reshape(B*S, D), W_v, b_v)
+
+    # Reshape and split heads
+    Q = Q.reshape(B, T, H, Dh).transpose(0, 2, 1, 3)
+    K = K.reshape(B, S, H, Dh).transpose(0, 2, 1, 3)
+    V = V.reshape(B, S, H, Dh).transpose(0, 2, 1, 3)
 
     attn_out, attn_cache = scaled_dot_product_attention_forward(Q, K, V, mask=mask)
     concat = attn_out.transpose(0, 2, 1, 3).reshape(B, T, D)
     out, o_cache = linear_forward(concat.reshape(B * T, D), W_o, b_o)
     out = out.reshape(B, T, D)
-    
+
     cache = (B, T, S, D, H, Dh, x_dec.shape, x_enc.shape,
              q_cache, k_cache, v_cache, attn_cache, o_cache, concat.shape)
     return out, cache
@@ -157,33 +157,33 @@ def multihead_cross_attention_forward(x_dec, x_enc, W_q, W_k, W_v, W_o,
 def multihead_cross_attention_backward(grad_out, cache):
     (B, T, S, D, H, Dh, x_dec_shape, x_enc_shape,
      q_cache, k_cache, v_cache, attn_cache, o_cache, concat_shape) = cache
-    
-    # Backward through output projection 
+
+    # Backward through output projection
     grad_concat_flat, grad_W_o, grad_b_o = linear_backward(
         grad_out.reshape(B * T, D), o_cache
     )
     grad_concat = grad_concat_flat.reshape(concat_shape)
     grad_attn_out = grad_concat.reshape(B, T, H, Dh).transpose(0, 2, 1, 3)
-    
+
     # Backward through attention
     grad_Q_heads, grad_K_heads, grad_V_heads = scaled_dot_product_attention_backward(
         grad_attn_out, attn_cache
     )
-    
+
     grad_Q_flat = grad_Q_heads.transpose(0, 2, 1, 3).reshape(B * T, D)
     grad_K_flat = grad_K_heads.transpose(0, 2, 1, 3).reshape(B * S, D)
     grad_V_flat = grad_V_heads.transpose(0, 2, 1, 3).reshape(B * S, D)
-    
+
     # Backward through QKV projections
     grad_x_dec_q, grad_W_q, grad_b_q = linear_backward(grad_Q_flat, q_cache)
     grad_x_enc_k, grad_W_k, grad_b_k = linear_backward(grad_K_flat, k_cache)
     grad_x_enc_v, grad_W_v, grad_b_v = linear_backward(grad_V_flat, v_cache)
-    
+
     # x_dec contributes only through Q
     grad_x_dec = grad_x_dec_q.reshape(x_dec_shape)
     # x_enc contributes through both K and V — sum the contributions
     grad_x_enc = (grad_x_enc_k + grad_x_enc_v).reshape(x_enc_shape)
-    
+
     return (grad_x_dec, grad_x_enc,
             grad_W_q, grad_W_k, grad_W_v, grad_W_o,
             grad_b_q, grad_b_k, grad_b_v, grad_b_o)
