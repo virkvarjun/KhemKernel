@@ -35,12 +35,15 @@ Each op backprop needs a kernel. Math (forward → backward):
 | Kernel | Backward computed | Status |
 |---|---|---|
 | `matmul_backward` | `dA = dC·Bᵀ`, `dB = Aᵀ·dC` | written, unverified |
-| `gelu` (fwd+bwd)  | tanh-approx gelu and its derivative | todo |
-| `layer_norm_backward` | `dx`, `dγ`, `dβ` (Bessel-corrected) | todo |
-| `softmax_backward` | `dz = p ⊙ (dy − Σ(dy⊙p))` (pure softmax, for attention) | todo |
-| `cross_entropy` (fwd+bwd) | NLL loss; `(softmax − onehot)/n_valid`, pad-masked | todo |
-| `embedding_backward` | scatter-add grad rows by token id (`atomicAdd`) | todo |
-| `adam_update` | in-place Adam step over a flat buffer | todo |
+| `gelu` (fwd+bwd)  | tanh-approx gelu and its derivative | written, unverified |
+| `layer_norm_backward` | `dx`, `dγ`, `dβ` (Bessel-corrected) | written, unverified |
+| `softmax_backward` | `dz = p ⊙ (dy − Σ(dy⊙p))` (pure softmax, for attention) | written, unverified |
+| `cross_entropy` (fwd+bwd) | NLL loss; `(softmax − onehot)/n_valid`, pad-masked | written, unverified |
+| `embedding_backward` | scatter-add grad rows by token id (`atomicAdd`) | written, unverified |
+| `adam_update` | in-place Adam step over a flat buffer | written, unverified |
+
+All Phase-1 kernels are written with standalone self-tests and pytest parity
+tests, but **none are verified on hardware yet** — build and run them on the pod.
 
 Exit criterion: `--backend cuda` runs full fwd+bwd and matches the NumPy path on
 a tiny model within ~1e-3 (fp32).
