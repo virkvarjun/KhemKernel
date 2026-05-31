@@ -218,7 +218,7 @@ def main():
                     args.batch_size, src_pad, tgt_pad,
                     n_batches=args.val_batches,
                 )
-                logger.log_step(step, val_loss, 0.0, lr)  # log val as extra entry
+                logger.log_val(step, val_loss)
                 tqdm.write(
                     f"step {step:6d}  train_loss {loss:.4f}  val_loss {val_loss:.4f}"
                 )
