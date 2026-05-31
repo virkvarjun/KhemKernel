@@ -2,6 +2,7 @@
 #include <pybind11/numpy.h>
 #include <stdexcept>
 #include <string>
+#include <cstring>
 
 #include "vector_add.h"
 #include "matmul_naive.h"
@@ -13,6 +14,9 @@
 #include "layer_norm_backward.h"
 #include "gelu.h"
 #include "cross_entropy.h"
+#include "embedding.h"
+#include "adam.h"
+#include <cmath>
 
 namespace py = pybind11;
 
@@ -209,6 +213,40 @@ py::array_t<float> py_cross_entropy_backward(f32arr logits, i32arr targets,
     return grad;
 }
 
+// Embedding backward (scatter-add). grad_out (M,D), ids (M,) int -> grad_table (V,D).
+py::array_t<float> py_embedding_backward(f32arr grad_out, i32arr ids, int V){
+    require_ndim(grad_out, 2, "embedding_backward grad_out");
+    require_ndim(ids, 1, "embedding_backward ids");
+    int M = static_cast<int>(grad_out.shape(0));
+    int D = static_cast<int>(grad_out.shape(1));
+    if (static_cast<int>(ids.size()) != M)
+        throw std::runtime_error("embedding_backward: ids length must equal grad_out rows");
+    auto grad_table = py::array_t<float>({V, D});
+    launch_embedding_backward(grad_out.data(), ids.data(), grad_table.mutable_data(), M, D, V);
+    return grad_table;
+}
+
+// Adam update over a flat buffer. Returns updated (param, m, v) as new arrays;
+// inputs are not mutated. step is 1-indexed (used for bias correction).
+py::tuple py_adam_update(f32arr param, f32arr grad, f32arr m, f32arr v,
+                         int step, float lr, float b1, float b2, float eps){
+    int n = static_cast<int>(param.size());
+    if (grad.size() != n || m.size() != n || v.size() != n)
+        throw std::runtime_error("adam_update: param/grad/m/v must have equal size");
+    auto p_out = py::array_t<float>(param.request().shape);
+    auto m_out = py::array_t<float>(m.request().shape);
+    auto v_out = py::array_t<float>(v.request().shape);
+    std::memcpy(p_out.mutable_data(), param.data(), (size_t)n * sizeof(float));
+    std::memcpy(m_out.mutable_data(), m.data(),     (size_t)n * sizeof(float));
+    std::memcpy(v_out.mutable_data(), v.data(),     (size_t)n * sizeof(float));
+    float bc1 = 1.0f - std::pow(b1, step);
+    float bc2 = 1.0f - std::pow(b2, step);
+    launch_adam_update(p_out.mutable_data(), grad.data(),
+                       m_out.mutable_data(), v_out.mutable_data(),
+                       n, lr, b1, b2, eps, bc1, bc2);
+    return py::make_tuple(p_out, m_out, v_out);
+}
+
 PYBIND11_MODULE(picochem_cuda, m){
     m.doc() = "CUDA kernels for picochem (forward-pass only)";
     m.def("vector_add",   &py_vector_add,   "Element-wise float32 vector addition");
@@ -227,4 +265,8 @@ PYBIND11_MODULE(picochem_cuda, m){
           "Softmax cross-entropy forward -> (loss, n_valid) (logits f32, targets int)");
     m.def("cross_entropy_backward", &py_cross_entropy_backward,
           "Softmax cross-entropy backward -> grad_logits (float32)");
+    m.def("embedding_backward", &py_embedding_backward,
+          "Embedding backward (scatter-add) -> grad_table (V,D) (float32)");
+    m.def("adam_update", &py_adam_update,
+          "Adam update -> (param, m, v) updated (float32)");
 }

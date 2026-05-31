@@ -227,3 +227,43 @@ def test_cross_entropy_parity():
     assert abs(loss - loss_ref) < 1e-3
     assert n_valid == (targets != ignore).sum()
     np.testing.assert_allclose(grad, grad_ref, atol=1e-4)
+
+
+def test_embedding_backward_parity():
+    from picochem.embeddings import token_embedding_forward, token_embedding_backward
+    V, D = 20, 32
+    table = rng.standard_normal((V, D)).astype(np.float64)
+    token_ids = rng.integers(0, V, size=(4, 8)).astype(np.int32)  # (B, S), with repeats
+    _, cache = token_embedding_forward(token_ids, table)
+    grad_out = rng.standard_normal((4, 8, D)).astype(np.float32)
+    (grad_table_ref,) = token_embedding_backward(grad_out.astype(np.float64), cache)
+
+    grad_table = picochem_cuda.embedding_backward(
+        grad_out.reshape(-1, D), token_ids.reshape(-1), V
+    )
+    assert grad_table.shape == (V, D)
+    np.testing.assert_allclose(grad_table, grad_table_ref, atol=1e-3)
+
+
+def test_adam_update_parity():
+    from picochem.optimizer import init_adam_state, adam_step
+    n = 512
+    param = rng.standard_normal(n).astype(np.float64)
+    grad = rng.standard_normal(n).astype(np.float64)
+    state = init_adam_state(param)
+    state["m"] = rng.standard_normal(n).astype(np.float64) * 0.1
+    state["v"] = (rng.standard_normal(n).astype(np.float64) * 0.1) ** 2
+    step, lr, b1, b2, eps = 7, 1e-3, 0.9, 0.999, 1e-8
+
+    p_ref = param.copy()
+    m_ref, v_ref = state["m"].copy(), state["v"].copy()
+    adam_step(p_ref, grad, {"m": m_ref, "v": v_ref}, step, lr=lr, beta1=b1, beta2=b2, eps=eps)
+
+    p_out, m_out, v_out = picochem_cuda.adam_update(
+        param.astype(np.float32), grad.astype(np.float32),
+        state["m"].astype(np.float32), state["v"].astype(np.float32),
+        step, lr, b1, b2, eps,
+    )
+    np.testing.assert_allclose(p_out, p_ref, atol=1e-5)
+    np.testing.assert_allclose(m_out, m_ref, atol=1e-5)
+    np.testing.assert_allclose(v_out, v_ref, atol=1e-6)
