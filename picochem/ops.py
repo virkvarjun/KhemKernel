@@ -39,7 +39,7 @@ def gelu_backward(grad_y, cache):
 
 
 # Softmax + Cross-Entropy (used by the training loss, not by attention)
-def softmax_cross_entropy_forward(logits, targets, ignore_index=1):
+def softmax_cross_entropy_forward(logits, targets, ignore_index=-1):
     # Stable Softmax with cross-entropy loss
     logits_max = logits.max(axis=-1, keepdims=True)
     log_sum_exp = np.log(np.exp(logits - logits_max).sum(axis=-1, keepdims=True)) + logits_max
@@ -61,9 +61,6 @@ def softmax_cross_entropy_forward(logits, targets, ignore_index=1):
     cache = (log_probs, targets, mask, n_valid, ignore_index)
     return loss, cache
 
-# Keep the old name as an alias so existing call sites still work.
-softmax_forward = softmax_cross_entropy_forward
-
 def softmax_cross_entropy_backward(grad_loss, cache):
     log_probs, targets, mask, n_valid, ignore_index = cache
     probs = np.exp(log_probs)
@@ -77,8 +74,6 @@ def softmax_cross_entropy_backward(grad_loss, cache):
     grad_logits = grad_logits * grad_loss  # chain-rule: multiply by upstream gradient
 
     return (grad_logits, None)  # no gradient wrt integer targets
-
-softmax_backward = softmax_cross_entropy_backward
 
 
 # Pure softmax backward (used by attention — forward dispatches via backend.softmax)
