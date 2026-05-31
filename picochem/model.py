@@ -1,5 +1,4 @@
-"""Full encoder-decoder model: wires encoder, decoder, and output projection."""
-"""Full encoder-decoder transformer model."""
+"""Full encoder-decoder transformer model: wires encoder, decoder, and output projection."""
 
 import numpy as np
 
