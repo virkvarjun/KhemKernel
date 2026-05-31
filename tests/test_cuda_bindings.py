@@ -147,3 +147,61 @@ def test_layer_norm_3d():
     out = picochem_cuda.layer_norm(x, gamma, beta)
     assert out.shape == (B, S, D)
     np.testing.assert_allclose(out, expected, atol=1e-5)
+
+
+# ── backward-pass kernels (parity vs picochem.ops) ──────────────────────────
+
+def test_gelu_forward_parity():
+    from picochem.ops import gelu_forward
+    x = (rng.standard_normal((16, 64)).astype(np.float32) * 3.0)
+    expected, _ = gelu_forward(x.astype(np.float64))
+    out = picochem_cuda.gelu_forward(x)
+    assert out.shape == x.shape
+    np.testing.assert_allclose(out, expected, atol=1e-3)
+
+
+def test_gelu_backward_parity():
+    from picochem.ops import gelu_forward, gelu_backward
+    x = (rng.standard_normal((16, 64)).astype(np.float32) * 3.0)
+    grad_y = rng.standard_normal((16, 64)).astype(np.float32)
+    _, cache = gelu_forward(x.astype(np.float64))
+    (expected,) = gelu_backward(grad_y.astype(np.float64), cache)
+    out = picochem_cuda.gelu_backward(grad_y, x)
+    assert out.shape == x.shape
+    np.testing.assert_allclose(out, expected, atol=1e-3)
+
+
+def test_softmax_backward_parity():
+    from picochem.ops import softmax_backward_pure
+    B, H, T, S = 2, 4, 8, 16
+    logits = rng.standard_normal((B, H, T, S)).astype(np.float32)
+    e = np.exp(logits - logits.max(axis=-1, keepdims=True))
+    probs = (e / e.sum(axis=-1, keepdims=True)).astype(np.float32)
+    grad_out = rng.standard_normal((B, H, T, S)).astype(np.float32)
+    (expected,) = softmax_backward_pure(grad_out.astype(np.float64), (probs.astype(np.float64),))
+    out = picochem_cuda.softmax_backward(grad_out, probs)
+    assert out.shape == probs.shape
+    np.testing.assert_allclose(out, expected, atol=1e-4)
+
+
+def test_layer_norm_backward_parity():
+    from picochem.ops import layer_norm_forward, layer_norm_backward
+    M, N = 24, 64
+    x = rng.standard_normal((M, N)).astype(np.float64)
+    gamma = (rng.standard_normal(N) + 1.0).astype(np.float64)
+    beta = rng.standard_normal(N).astype(np.float64)
+    grad_y = rng.standard_normal((M, N)).astype(np.float64)
+
+    _, cache = layer_norm_forward(x, gamma, beta)
+    x_hat, _gamma, inv_std = cache  # inv_std is (M, 1)
+    gx_ref, gg_ref, gb_ref = layer_norm_backward(grad_y, cache)
+
+    gx, gg, gb = picochem_cuda.layer_norm_backward(
+        grad_y.astype(np.float32),
+        x_hat.astype(np.float32),
+        gamma.astype(np.float32),
+        inv_std.reshape(-1).astype(np.float32),
+    )
+    np.testing.assert_allclose(gx, gx_ref, atol=1e-3)
+    np.testing.assert_allclose(gg, gg_ref, atol=1e-2)
+    np.testing.assert_allclose(gb, gb_ref, atol=1e-2)

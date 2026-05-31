@@ -8,7 +8,10 @@
 #include "matmul_tiled.h"
 #include "matmul_backward.h"
 #include "softmax.h"
+#include "softmax_backward.h"
 #include "layer_norm.h"
+#include "layer_norm_backward.h"
+#include "gelu.h"
 
 namespace py = pybind11;
 
@@ -118,6 +121,60 @@ py::array_t<float> py_layer_norm(f32arr x, f32arr gamma, f32arr beta){
     return out;
 }
 
+// GeLU forward, elementwise over any-shape input (returns same shape).
+py::array_t<float> py_gelu_forward(f32arr x){
+    int N = static_cast<int>(x.size());
+    auto out = py::array_t<float>(x.size());
+    launch_gelu_forward(x.data(), out.mutable_data(), N);
+    out.resize(x.request().shape);
+    return out;
+}
+
+// GeLU backward: grad_x = grad_y · dy/dx(x). Shapes must match.
+py::array_t<float> py_gelu_backward(f32arr grad_y, f32arr x){
+    if (grad_y.size() != x.size())
+        throw std::runtime_error("gelu_backward: grad_y and x must have the same size");
+    int N = static_cast<int>(x.size());
+    auto grad_x = py::array_t<float>(x.size());
+    launch_gelu_backward(grad_y.data(), x.data(), grad_x.mutable_data(), N);
+    grad_x.resize(x.request().shape);
+    return grad_x;
+}
+
+// Pure-softmax backward along the last axis (any leading dims).
+py::array_t<float> py_softmax_backward(f32arr grad_out, f32arr probs){
+    if (grad_out.size() != probs.size())
+        throw std::runtime_error("softmax_backward: grad_out and probs must match");
+    int N = static_cast<int>(probs.shape(probs.ndim() - 1));
+    int M = static_cast<int>(probs.size()) / N;
+    auto grad_in = py::array_t<float>(probs.size());
+    launch_softmax_backward(grad_out.data(), probs.data(), grad_in.mutable_data(), M, N);
+    grad_in.resize(probs.request().shape);
+    return grad_in;
+}
+
+// Layer-norm backward. grad_y/x_hat: (..., N); gamma: (N,); inv_std: (M,) flattened.
+// Returns (grad_x [same shape as grad_y], grad_gamma [N], grad_beta [N]).
+py::tuple py_layer_norm_backward(f32arr grad_y, f32arr x_hat, f32arr gamma, f32arr inv_std){
+    if (grad_y.size() != x_hat.size())
+        throw std::runtime_error("layer_norm_backward: grad_y and x_hat must match");
+    require_ndim(gamma, 1, "layer_norm_backward gamma");
+    int N = static_cast<int>(x_hat.shape(x_hat.ndim() - 1));
+    int M = static_cast<int>(x_hat.size()) / N;
+    if (static_cast<int>(gamma.size()) != N)
+        throw std::runtime_error("layer_norm_backward: gamma size must equal last dim");
+    if (static_cast<int>(inv_std.size()) != M)
+        throw std::runtime_error("layer_norm_backward: inv_std size must equal M (rows)");
+    auto grad_x     = py::array_t<float>(x_hat.size());
+    auto grad_gamma = py::array_t<float>(N);
+    auto grad_beta  = py::array_t<float>(N);
+    launch_layer_norm_backward(grad_y.data(), x_hat.data(), gamma.data(), inv_std.data(),
+                               grad_x.mutable_data(), grad_gamma.mutable_data(),
+                               grad_beta.mutable_data(), M, N);
+    grad_x.resize(grad_y.request().shape);
+    return py::make_tuple(grad_x, grad_gamma, grad_beta);
+}
+
 PYBIND11_MODULE(picochem_cuda, m){
     m.doc() = "CUDA kernels for picochem (forward-pass only)";
     m.def("vector_add",   &py_vector_add,   "Element-wise float32 vector addition");
@@ -126,5 +183,10 @@ PYBIND11_MODULE(picochem_cuda, m){
     m.def("matmul_dA",    &py_matmul_dA,    "Backward dA = dC @ Bᵀ for C = A @ B (float32)");
     m.def("matmul_dB",    &py_matmul_dB,    "Backward dB = Aᵀ @ dC for C = A @ B (float32)");
     m.def("softmax",      &py_softmax,      "Row-wise softmax along last axis (float32)");
+    m.def("softmax_backward", &py_softmax_backward, "Pure-softmax backward along last axis (float32)");
     m.def("layer_norm",   &py_layer_norm,   "Layer norm along last axis (float32)");
+    m.def("layer_norm_backward", &py_layer_norm_backward,
+          "Layer-norm backward -> (grad_x, grad_gamma, grad_beta) (float32)");
+    m.def("gelu_forward",  &py_gelu_forward,  "GeLU forward, tanh approximation (float32)");
+    m.def("gelu_backward", &py_gelu_backward, "GeLU backward, grad_x = grad_y·dy/dx (float32)");
 }
