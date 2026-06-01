@@ -66,12 +66,19 @@ to download, `.shape`) plus a `dt_*` op set that keeps data resident across ops
 | inc 2d | batched matmul `dt_bmm` (transA/transB) for attention | ✅ verified (nn/nt/tn) |
 | inc 2e | `dt_softmax` fwd/bwd, `dt_scale` → device-resident **SDPA** fwd+bwd | ✅ verified — ~2.5e-7 vs numpy |
 
-Remaining for a full resident `train_step`:
-- device `layer_norm` fwd + backward launchers (`dt_layer_norm` / `_backward`).
+| inc 2f | `dt_layer_norm` fwd/bwd (forward emits x_hat/inv_std) | ✅ verified |
+| inc 2g | `dt_split_heads`/`dt_merge_heads` (head transpose) | ✅ verified (round-trip exact) |
+| inc 2h | `dt_reshape`; device-resident **multi-head self-attention** fwd+bwd | ✅ verified — ~2e-7 vs numpy |
+
+Every primitive and the three hardest composites (FFN 32.6×, SDPA, full MHA) are
+verified against the numpy path to ~1e-6 or better. Remaining for a full resident
+`train_step`:
+- collect the resident layer logic into a committed `device_layers.py`
+  (MHA / FFN / LayerNorm assembled from `dt_*`), then a resident encoder block
+  (LN + MHA + residual + LN + FFN + residual) and decoder block (+ cross-attn).
 - device-resident embedding **gather** (forward) + `dt_cross_entropy` + `dt_adam`
-  (DeviceTensor wrappers over the existing kernels).
-- assemble a resident encoder/decoder block (LN + SDPA + FFN + residual via
-  `dt_add`), then the full model fwd+bwd keeping all caches on-device.
+  (DeviceTensor wrappers over the existing verified kernels).
+- full model fwd+bwd keeping all caches on-device; gradient-check vs numpy.
 
 ## Phase 3 — Wire & validate training
 

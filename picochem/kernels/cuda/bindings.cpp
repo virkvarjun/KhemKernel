@@ -174,6 +174,16 @@ DeviceTensor* dt_bmm(const DeviceTensor& A, const DeviceTensor& B,
     return C;
 }
 
+// Reshape (metadata change). Element count must match; data stays on the GPU
+// via a device-to-device copy (keeps DeviceTensor's single-owner model simple).
+DeviceTensor* dt_reshape(const DeviceTensor& x, std::vector<py::ssize_t> shape){
+    size_t prod = 1; for (auto s : shape) prod *= static_cast<size_t>(s);
+    if (prod != x.n) throw std::runtime_error("dt_reshape: element count mismatch");
+    auto* out = new DeviceTensor(shape);
+    CUDA_CHECK(cudaMemcpy(out->d, x.d, x.n * sizeof(float), cudaMemcpyDeviceToDevice));
+    return out;
+}
+
 // Split heads: x(B,S,D) -> (B*H, S, Dh), Dh = D/H. Resident.
 DeviceTensor* dt_split_heads(const DeviceTensor& x, int H){
     if (x.shape.size() != 3) throw std::runtime_error("dt_split_heads: x must be (B,S,D)");
@@ -519,6 +529,8 @@ PYBIND11_MODULE(picochem_cuda, m){
           "Device-resident layer norm fwd -> (y, x_hat, inv_std)");
     m.def("dt_layer_norm_backward", &dt_layer_norm_backward,
           "Device-resident layer norm backward -> (grad_x, grad_gamma, grad_beta)");
+    m.def("dt_reshape", &dt_reshape, py::return_value_policy::take_ownership,
+          py::arg("x"), py::arg("shape"), "Reshape a resident tensor (element count preserved)");
     m.def("dt_split_heads", &dt_split_heads, py::return_value_policy::take_ownership,
           py::arg("x"), py::arg("n_heads"), "Split heads: (B,S,D) -> (B*H,S,Dh)");
     m.def("dt_merge_heads", &dt_merge_heads, py::return_value_policy::take_ownership,
