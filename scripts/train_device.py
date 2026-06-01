@@ -12,7 +12,9 @@ Run with picochem/kernels on the path:
     PYTHONPATH=picochem/kernels python scripts/train_device.py --data data/traces.parquet ...
 """
 import argparse
+import datetime
 import math
+import os
 import sys
 import time
 
@@ -23,6 +25,7 @@ sys.path.insert(0, "picochem/kernels")
 
 import picochem_cuda as pc
 import picochem.device_layers as dl
+from picochem.checkpointing import save_checkpoint
 from picochem.model import init_params, make_padding_mask, make_causal_mask
 from picochem.optimizer import init_adam_state, adam_step
 
@@ -53,9 +56,17 @@ def main():
     ap.add_argument("--batch_size", type=int, default=16)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--log_every", type=int, default=10)
+    ap.add_argument("--checkpoint_every", type=int, default=1000,
+                    help="save a numpy checkpoint every N steps (0 disables)")
+    ap.add_argument("--run_dir", default=None, help="checkpoint dir (default runs/device_<ts>)")
     ap.add_argument("--src_vocab", type=int, default=64, help="synthetic only")
     ap.add_argument("--tgt_vocab", type=int, default=80, help="synthetic only")
     args = ap.parse_args()
+
+    if args.run_dir is None:
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        args.run_dir = os.path.join("runs", f"device_{ts}")
+    os.makedirs(args.run_dir, exist_ok=True)
 
     H = args.n_heads
     b1, b2, eps = 0.9, 0.999, 1e-8
@@ -118,6 +129,19 @@ def main():
         pc.dt_adam(fg, g['final_ln_gamma'], mstate['fg'], vstate['fg'], step, args.lr, b1, b2, eps)
         pc.dt_adam(fb, g['final_ln_beta'], mstate['fb'], vstate['fb'], step, args.lr, b1, b2, eps)
 
+    def snapshot_and_save(step):
+        """Download resident params + host embeddings into a numpy params dict
+        (matching init_params' structure) and save a checkpoint."""
+        np_p = {
+            'src_token_embed': emb['src_token_embed'], 'tgt_token_embed': emb['tgt_token_embed'],
+            'src_pos_embed': emb['src_pos_embed'], 'tgt_pos_embed': emb['tgt_pos_embed'],
+            'encoder_blocks': [{k: blk[k].numpy() for k in blk} for blk in enc],
+            'decoder_blocks': [{k: blk[k].numpy() for k in blk} for blk in dec],
+            'final_ln_gamma': fg.numpy(), 'final_ln_beta': fb.numpy(),
+        }
+        path = os.path.join(args.run_dir, "ckpt_latest.npz")
+        save_checkpoint(path, np_p, {}, step, cfg)
+
     print(f"Device training: {args.total_steps} steps, batch {args.batch_size}, "
           f"d_model {args.d_model}, {args.n_enc_layers}+{args.n_dec_layers} layers, "
           f"vocab {src_vocab}/{tgt_vocab}\n")
@@ -154,9 +178,15 @@ def main():
 
         if step % args.log_every == 0 or step == 1:
             dt_ms = (time.perf_counter() - t0) / step * 1000
-            print(f"step {step:5d}  loss {float(loss):.4f}  ({dt_ms:.1f} ms/step)")
+            print(f"step {step:5d}  loss {float(loss):.4f}  ({dt_ms:.1f} ms/step)", flush=True)
 
-    print(f"\nDone. {args.total_steps} steps in {time.perf_counter()-t0:.1f}s")
+        if args.checkpoint_every and step % args.checkpoint_every == 0:
+            snapshot_and_save(step)
+            print(f"  checkpoint -> {args.run_dir}/ckpt_latest.npz", flush=True)
+
+    snapshot_and_save(args.total_steps)
+    print(f"\nDone. {args.total_steps} steps in {time.perf_counter()-t0:.1f}s  "
+          f"(checkpoint in {args.run_dir})")
 
 
 if __name__ == "__main__":
