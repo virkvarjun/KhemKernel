@@ -20,8 +20,25 @@ except ImportError:
     sys.exit("pybind11 not found — run: pip install pybind11")
 
 
+def _supported_virtual_archs():
+    """Virtual archs the installed nvcc knows about, e.g. {50,...,90}."""
+    try:
+        out = subprocess.check_output(
+            ["nvcc", "--list-gpu-arch"], stderr=subprocess.DEVNULL
+        ).decode()
+        return {int(tok.split("_")[1]) for tok in out.split() if tok.startswith("compute_")}
+    except Exception:
+        return set()
+
+
 def detect_cuda_arch():
-    """Try to detect the GPU SM version via nvidia-smi; fall back to env/default."""
+    """Pick an nvcc -arch for this GPU + toolkit.
+
+    Native ``sm_NN`` when the toolkit supports the GPU's compute capability;
+    otherwise fall back to the newest virtual ``compute_NN`` the toolkit knows
+    (PTX only — the driver JITs it onto the newer GPU at runtime). This keeps
+    builds working on, e.g., a Blackwell card (sm_120) with a CUDA 12.4 toolkit.
+    """
     env_arch = os.environ.get("CUDA_ARCH")
     if env_arch:
         return env_arch
@@ -31,9 +48,17 @@ def detect_cuda_arch():
             stderr=subprocess.DEVNULL,
         ).decode().strip().split("\n")[0]
         major, minor = out.strip().split(".")
-        return f"sm_{major}{minor}"
+        cc = int(f"{major}{minor}")
     except Exception:
         return "sm_120"
+
+    supported = _supported_virtual_archs()
+    if not supported or cc in supported:
+        return f"sm_{cc}"  # toolkit can target the GPU natively
+    newest = max(supported)
+    print(f"warning: CUDA toolkit lacks sm_{cc}; building compute_{newest} PTX "
+          f"(driver will JIT to sm_{cc} at runtime)")
+    return f"compute_{newest}"
 
 
 def run(cmd):
