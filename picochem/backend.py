@@ -57,6 +57,34 @@ def matmul(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     return out.astype(dtype)
 
 
+# ── matmul backward ─────────────────────────────────────────────────────────
+
+def matmul_dA(grad_y: np.ndarray, W: np.ndarray) -> np.ndarray:
+    """Backward w.r.t. the left operand: grad_x = grad_y @ Wᵀ. Inputs 2-D."""
+    if _backend == 'numpy':
+        return grad_y @ W.T
+    cuda = _cuda_module()
+    dtype = grad_y.dtype
+    out = cuda.matmul_dA(
+        np.ascontiguousarray(grad_y, dtype=np.float32),
+        np.ascontiguousarray(W, dtype=np.float32),
+    )
+    return out.astype(dtype)
+
+
+def matmul_dB(x: np.ndarray, grad_y: np.ndarray) -> np.ndarray:
+    """Backward w.r.t. the right operand: grad_W = xᵀ @ grad_y. Inputs 2-D."""
+    if _backend == 'numpy':
+        return x.T @ grad_y
+    cuda = _cuda_module()
+    dtype = grad_y.dtype
+    out = cuda.matmul_dB(
+        np.ascontiguousarray(x, dtype=np.float32),
+        np.ascontiguousarray(grad_y, dtype=np.float32),
+    )
+    return out.astype(dtype)
+
+
 # ── softmax ───────────────────────────────────────────────────────────────────
 
 def softmax(x: np.ndarray):

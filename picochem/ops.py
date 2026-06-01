@@ -13,8 +13,8 @@ def linear_forward(x, W, b):
 
 def linear_backward(grad_y, cache):
     x, W = cache
-    grad_x = grad_y @ W.T
-    grad_W = x.T @ grad_y
+    grad_x = backend.matmul_dA(grad_y, W)   # grad_y @ W.T
+    grad_W = backend.matmul_dB(x, grad_y)   # x.T @ grad_y
     grad_b = grad_y.sum(axis=0)
     return grad_x, grad_W, grad_b
 
