@@ -119,6 +119,29 @@ def test_dt_colsum_parity():
     np.testing.assert_allclose(out, x.sum(axis=0), atol=1e-3)
 
 
+def test_dt_bmm_parity():
+    """Batched matmul covers every attention matmul via transA/transB."""
+    DT = picochem_cuda.DeviceTensor
+    bt, T, S, Dh = 6, 10, 12, 8   # batch = B*H
+    Q = rng.standard_normal((bt, T, Dh)).astype(np.float32)
+    K = rng.standard_normal((bt, S, Dh)).astype(np.float32)
+    V = rng.standard_normal((bt, S, Dh)).astype(np.float32)
+    W = rng.standard_normal((bt, T, S)).astype(np.float32)   # attn weights
+    g = rng.standard_normal((bt, T, Dh)).astype(np.float32)  # grad_out
+
+    # nn: weights @ V  (T,S)@(S,Dh)
+    np.testing.assert_allclose(picochem_cuda.dt_bmm(DT(W), DT(V)).numpy(), W @ V, atol=1e-3)
+    # nt: Q @ Kᵀ  (forward scores)
+    np.testing.assert_allclose(picochem_cuda.dt_bmm(DT(Q), DT(K), transB=True).numpy(),
+                               Q @ K.transpose(0, 2, 1), atol=1e-3)
+    # nt backward: grad_weights = grad_out @ Vᵀ
+    np.testing.assert_allclose(picochem_cuda.dt_bmm(DT(g), DT(V), transB=True).numpy(),
+                               g @ V.transpose(0, 2, 1), atol=1e-3)
+    # tn: grad_V = weightsᵀ @ grad_out
+    np.testing.assert_allclose(picochem_cuda.dt_bmm(DT(W), DT(g), transA=True).numpy(),
+                               W.transpose(0, 2, 1) @ g, atol=1e-3)
+
+
 def test_matmul_dA():
     """dA = dC @ Bᵀ for C = A @ B."""
     M, K, N = 40, 24, 56

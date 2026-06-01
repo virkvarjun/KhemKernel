@@ -18,6 +18,7 @@
 #include "embedding.h"
 #include "adam.h"
 #include "bias.h"
+#include "batched_matmul.h"
 #include <cmath>
 #include <vector>
 #include <cuda_runtime.h>
@@ -150,6 +151,26 @@ DeviceTensor* dt_colsum(const DeviceTensor& x){
     auto* out = new DeviceTensor(std::vector<py::ssize_t>{N});
     launch_colsum_device(x.d, out->d, M, N);
     return out;
+}
+
+// Batched matmul with optional transpose. A,B are 3-D (batch, ., .).
+// Result C = (batch, Mr, Nr); Mr/Kc/Nr derived from shapes + the transpose flags.
+DeviceTensor* dt_bmm(const DeviceTensor& A, const DeviceTensor& B,
+                     bool transA, bool transB){
+    if (A.shape.size() != 3 || B.shape.size() != 3)
+        throw std::runtime_error("dt_bmm: operands must be 3-D (batch, ., .)");
+    int batch = static_cast<int>(A.shape[0]);
+    if (static_cast<int>(B.shape[0]) != batch)
+        throw std::runtime_error("dt_bmm: batch mismatch");
+    int Mr = static_cast<int>(transA ? A.shape[2] : A.shape[1]);
+    int Kc = static_cast<int>(transA ? A.shape[1] : A.shape[2]);
+    int Bk = static_cast<int>(transB ? B.shape[2] : B.shape[1]);
+    int Nr = static_cast<int>(transB ? B.shape[1] : B.shape[2]);
+    if (Bk != Kc)
+        throw std::runtime_error("dt_bmm: contraction dimension mismatch");
+    auto* C = new DeviceTensor(std::vector<py::ssize_t>{batch, Mr, Nr});
+    launch_bmm_device(A.d, B.d, C->d, batch, Mr, Nr, Kc, transA ? 1 : 0, transB ? 1 : 0);
+    return C;
 }
 
 static void require_ndim(const f32arr& a, int ndim, const char* name){
@@ -397,6 +418,9 @@ PYBIND11_MODULE(picochem_cuda, m){
           "Device-resident broadcast bias add x(M,N)+b(N)");
     m.def("dt_colsum", &dt_colsum, py::return_value_policy::take_ownership,
           "Device-resident column sum (Linear bias gradient)");
+    m.def("dt_bmm", &dt_bmm, py::return_value_policy::take_ownership,
+          py::arg("A"), py::arg("B"), py::arg("transA") = false, py::arg("transB") = false,
+          "Device-resident batched matmul with optional per-operand transpose");
 
     m.def("vector_add",   &py_vector_add,   "Element-wise float32 vector addition");
     m.def("matmul_naive", &py_matmul_naive, "Naive CUDA matmul (float32, 2-D inputs)");
