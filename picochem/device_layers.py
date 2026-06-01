@@ -168,3 +168,114 @@ def encoder_block_backward(grad_out3, cache):
     }
     grads.update(attn_grads)
     return grad_x, grads
+
+
+# ── Multi-head cross-attention (Q from decoder, K/V from encoder) ─────────────
+
+def mha_cross_forward(x_dec3, x_enc3, Wq, Wk, Wv, Wo, bq, bk, bv, bo, n_heads, mask_dt=None):
+    import math
+    B, T, D = x_dec3.shape
+    _, S, _ = x_enc3.shape
+    H = n_heads
+    Dh = D // H
+    scale = 1.0 / math.sqrt(Dh)
+
+    xdec2 = pc.dt_reshape(x_dec3, [B * T, D])
+    xenc2 = pc.dt_reshape(x_enc3, [B * S, D])
+    Q, qc = linear_forward(xdec2, Wq, bq)
+    K, kc = linear_forward(xenc2, Wk, bk)
+    V, vc = linear_forward(xenc2, Wv, bv)
+    Qh = pc.dt_split_heads(pc.dt_reshape(Q, [B, T, D]), H)   # (B*H,T,Dh)
+    Kh = pc.dt_split_heads(pc.dt_reshape(K, [B, S, D]), H)   # (B*H,S,Dh)
+    Vh = pc.dt_split_heads(pc.dt_reshape(V, [B, S, D]), H)
+
+    scores = pc.dt_scale(pc.dt_bmm(Qh, Kh, transB=True), scale)  # (B*H,T,S)
+    if mask_dt is not None:
+        scores = pc.dt_add(scores, mask_dt)
+    W = pc.dt_softmax(scores)
+    ctx = pc.dt_bmm(W, Vh)                                       # (B*H,T,Dh)
+    concat2 = pc.dt_reshape(pc.dt_merge_heads(ctx, H), [B * T, D])
+    out2, oc = linear_forward(concat2, Wo, bo)
+    out = pc.dt_reshape(out2, [B, T, D])
+    cache = (B, T, S, D, H, Dh, scale, qc, kc, vc, oc, Qh, Kh, Vh, W)
+    return out, cache
+
+
+def mha_cross_backward(grad_out3, cache):
+    B, T, S, D, H, Dh, scale, qc, kc, vc, oc, Qh, Kh, Vh, W = cache
+    grad_out2 = pc.dt_reshape(grad_out3, [B * T, D])
+    grad_concat2, grad_Wo, grad_bo = linear_backward(grad_out2, oc)
+    grad_ctx = pc.dt_split_heads(pc.dt_reshape(grad_concat2, [B, T, D]), H)  # (B*H,T,Dh)
+
+    grad_W = pc.dt_bmm(grad_ctx, Vh, transB=True)   # (B*H,T,S)
+    grad_Vh = pc.dt_bmm(W, grad_ctx, transA=True)   # (B*H,S,Dh)
+    grad_scores = pc.dt_scale(pc.dt_softmax_backward(grad_W, W), scale)
+    grad_Qh = pc.dt_bmm(grad_scores, Kh)            # (B*H,T,Dh)
+    grad_Kh = pc.dt_bmm(grad_scores, Qh, transA=True)  # (B*H,S,Dh)
+
+    grad_Q2 = pc.dt_reshape(pc.dt_merge_heads(grad_Qh, H), [B * T, D])
+    grad_K2 = pc.dt_reshape(pc.dt_merge_heads(grad_Kh, H), [B * S, D])
+    grad_V2 = pc.dt_reshape(pc.dt_merge_heads(grad_Vh, H), [B * S, D])
+
+    grad_xdec2, grad_Wq, grad_bq = linear_backward(grad_Q2, qc)
+    grad_xenc_k2, grad_Wk, grad_bk = linear_backward(grad_K2, kc)
+    grad_xenc_v2, grad_Wv, grad_bv = linear_backward(grad_V2, vc)
+    grad_xdec = pc.dt_reshape(grad_xdec2, [B, T, D])
+    grad_xenc = pc.dt_reshape(pc.dt_add(grad_xenc_k2, grad_xenc_v2), [B, S, D])
+    grads = {
+        'attn_Wq': grad_Wq, 'attn_Wk': grad_Wk, 'attn_Wv': grad_Wv, 'attn_Wo': grad_Wo,
+        'attn_bq': grad_bq, 'attn_bk': grad_bk, 'attn_bv': grad_bv, 'attn_bo': grad_bo,
+    }
+    return grad_xdec, grad_xenc, grads
+
+
+# ── Decoder block (causal self-attn -> cross-attn -> FFN, all pre-norm) ───────
+
+def _reprefix(grads, new):
+    """'attn_Wq' -> '<new>_Wq', etc."""
+    return {f"{new}_{k[len('attn_'):]}": v for k, v in grads.items()}
+
+
+def decoder_block_forward(x3, enc_out3, p, n_heads, causal_mask_dt=None, enc_mask_dt=None):
+    xn1, ln1c = layer_norm_forward(x3, p['ln1_gamma'], p['ln1_beta'])
+    sattn, sc = mha_self_forward(
+        xn1, p['self_Wq'], p['self_Wk'], p['self_Wv'], p['self_Wo'],
+        p['self_bq'], p['self_bk'], p['self_bv'], p['self_bo'], n_heads, causal_mask_dt)
+    x1 = pc.dt_add(x3, sattn)
+    xn2, ln2c = layer_norm_forward(x1, p['ln2_gamma'], p['ln2_beta'])
+    cattn, cc = mha_cross_forward(
+        xn2, enc_out3, p['cross_Wq'], p['cross_Wk'], p['cross_Wv'], p['cross_Wo'],
+        p['cross_bq'], p['cross_bk'], p['cross_bv'], p['cross_bo'], n_heads, enc_mask_dt)
+    x2 = pc.dt_add(x1, cattn)
+    xn3, ln3c = layer_norm_forward(x2, p['ln3_gamma'], p['ln3_beta'])
+    ffn, ffnc = ffn_forward(xn3, p['ffn_W1'], p['ffn_b1'], p['ffn_W2'], p['ffn_b2'])
+    out = pc.dt_add(x2, ffn)
+    return out, (ln1c, sc, ln2c, cc, ln3c, ffnc)
+
+
+def decoder_block_backward(grad_out3, cache):
+    ln1c, sc, ln2c, cc, ln3c, ffnc = cache
+    # FFN sublayer
+    grad_x2 = grad_out3
+    g_ffn, gW1, gb1, gW2, gb2 = ffn_backward(grad_out3, ffnc)
+    g_xn3, g_ln3g, g_ln3b = layer_norm_backward(g_ffn, ln3c)
+    grad_x2 = pc.dt_add(grad_x2, g_xn3)
+    # Cross-attention sublayer (also produces the encoder-output gradient)
+    grad_x1 = grad_x2
+    g_cross_dec, grad_enc, cross_grads = mha_cross_backward(grad_x2, cc)
+    g_xn2, g_ln2g, g_ln2b = layer_norm_backward(g_cross_dec, ln2c)
+    grad_x1 = pc.dt_add(grad_x1, g_xn2)
+    # Causal self-attention sublayer
+    grad_x = grad_x1
+    g_self, self_grads = mha_self_backward(grad_x1, sc)
+    g_xn1, g_ln1g, g_ln1b = layer_norm_backward(g_self, ln1c)
+    grad_x = pc.dt_add(grad_x, g_xn1)
+    grads = {
+        'ln1_gamma': g_ln1g, 'ln1_beta': g_ln1b,
+        'ln2_gamma': g_ln2g, 'ln2_beta': g_ln2b,
+        'ln3_gamma': g_ln3g, 'ln3_beta': g_ln3b,
+        'ffn_W1': gW1, 'ffn_b1': gb1, 'ffn_W2': gW2, 'ffn_b2': gb2,
+    }
+    grads.update(_reprefix(self_grads, 'self'))
+    grads.update(_reprefix(cross_grads, 'cross'))
+    return grad_x, grad_enc, grads

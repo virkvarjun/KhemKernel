@@ -68,3 +68,43 @@ def test_encoder_block_parity():
     _close(gx.numpy(), gx_ref, rtol=5e-3)
     for k, v in grads_ref.items():
         _close(grads[k].numpy(), v, rtol=1e-2)
+
+
+def test_decoder_block_parity():
+    from picochem.model import init_params, make_padding_mask, make_causal_mask
+    from picochem.decoder import decoder_block_forward, decoder_block_backward
+    import picochem.device_layers as dl
+
+    B, T, S, D, H = 2, 6, 7, 32, 4
+    cfg = dict(src_vocab=10, tgt_vocab=10, d_model=D, n_heads=H, d_ff=64,
+               n_enc_layers=1, n_dec_layers=1, max_src_len=S, max_tgt_len=T)
+    params = init_params(cfg, np.random.default_rng(2))
+    bp = params['decoder_blocks'][0]
+
+    x = rng.standard_normal((B, T, D)).astype(np.float64)        # decoder input
+    enc = rng.standard_normal((B, S, D)).astype(np.float64)      # encoder output
+    tgt_tok = np.ones((B, T)); tgt_tok[0, -1:] = 0.0
+    src_tok = np.ones((B, S)); src_tok[1, -2:] = 0.0
+    self_mask = make_causal_mask(T) + make_padding_mask(tgt_tok)  # (B,1,T,T)
+    enc_mask = make_padding_mask(src_tok)                         # (B,1,1,S)
+
+    out_ref, c = decoder_block_forward(x, enc, bp, H, causal_mask=self_mask, encoder_padding_mask=enc_mask)
+    grad_out = rng.standard_normal((B, T, D)).astype(np.float64)
+    gx_ref, genc_ref, grads_ref = decoder_block_backward(grad_out, c)
+
+    selfm = np.broadcast_to(self_mask, (B, H, T, T)).reshape(B * H, T, T).astype(np.float32)
+    encm = np.broadcast_to(enc_mask, (B, H, T, S)).reshape(B * H, T, S).astype(np.float32)
+    pdt = _to_dt(bp)
+    out, cache = dl.decoder_block_forward(
+        picochem_cuda.DeviceTensor(x.astype(np.float32)),
+        picochem_cuda.DeviceTensor(enc.astype(np.float32)), pdt, H,
+        causal_mask_dt=picochem_cuda.DeviceTensor(selfm),
+        enc_mask_dt=picochem_cuda.DeviceTensor(encm))
+    gx, genc, grads = dl.decoder_block_backward(
+        picochem_cuda.DeviceTensor(grad_out.astype(np.float32)), cache)
+
+    _close(out.numpy(), out_ref, rtol=2e-3)
+    _close(gx.numpy(), gx_ref, rtol=5e-3)
+    _close(genc.numpy(), genc_ref, rtol=5e-3)
+    for k, v in grads_ref.items():
+        _close(grads[k].numpy(), v, rtol=1e-2)
