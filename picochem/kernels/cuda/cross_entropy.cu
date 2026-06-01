@@ -114,6 +114,34 @@ void launch_cross_entropy_backward(const float* h_logits, const int* h_targets,
     CUDA_CHECK(cudaFree(d_logits)); CUDA_CHECK(cudaFree(d_targets)); CUDA_CHECK(cudaFree(d_grad));
 }
 
+// ── device-resident: logits and targets already on the GPU ───────────────────
+
+float launch_cross_entropy_forward_device(const float* d_logits, const int* d_targets,
+                                          int M, int V, int ignore_index, float* out_n_valid){
+    float *d_nll, *d_valid;
+    CUDA_CHECK(cudaMalloc(&d_nll, M * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_valid, M * sizeof(float)));
+    ce_forward_kernel<<<M, THREADS>>>(d_logits, d_targets, d_nll, d_valid, M, V, ignore_index);
+    CUDA_CHECK_KERNEL();
+    std::vector<float> nll(M), valid(M);
+    CUDA_CHECK(cudaMemcpy(nll.data(), d_nll, M * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(valid.data(), d_valid, M * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaFree(d_nll)); CUDA_CHECK(cudaFree(d_valid));
+    float sum_nll = 0.0f, n = 0.0f;
+    for (int i = 0; i < M; ++i){ sum_nll += nll[i]; n += valid[i]; }
+    if (n == 0.0f) n = 1.0f;
+    *out_n_valid = n;
+    return sum_nll / n;
+}
+
+void launch_cross_entropy_backward_device(const float* d_logits, const int* d_targets,
+                                          float* d_grad, int M, int V, int ignore_index,
+                                          float n_valid, float grad_loss){
+    ce_backward_kernel<<<M, THREADS>>>(d_logits, d_targets, d_grad, M, V,
+                                       ignore_index, n_valid, grad_loss);
+    CUDA_CHECK_KERNEL();
+}
+
 #ifdef BUILD_STANDALONE
 int main(){
     const int M = 16, V = 200, ignore = -1;

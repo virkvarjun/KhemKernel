@@ -279,3 +279,74 @@ def decoder_block_backward(grad_out3, cache):
     grads.update(_reprefix(self_grads, 'self'))
     grads.update(_reprefix(cross_grads, 'cross'))
     return grad_x, grad_enc, grads
+
+
+# ── Full model (embedded inputs in, logits out) ──────────────────────────────
+# Embeddings (token gather + positional add) and their table gradients are
+# handled by the caller at the host boundary; the whole transformer stack —
+# encoder, decoder, final LayerNorm, and the weight-tied output projection —
+# runs on resident DeviceTensors. tgt_embed (V, D) is the tied output weight.
+
+def model_forward(src_emb, tgt_emb, enc_params, dec_params,
+                  final_ln_gamma, final_ln_beta, tgt_embed, n_heads,
+                  enc_mask_dt, self_mask_dt, cross_mask_dt):
+    enc_x = src_emb
+    enc_caches = []
+    for p in enc_params:
+        enc_x, c = encoder_block_forward(enc_x, p, n_heads, mask_dt=enc_mask_dt)
+        enc_caches.append(c)
+    enc_out = enc_x
+
+    dec_x = tgt_emb
+    dec_caches = []
+    for p in dec_params:
+        dec_x, c = decoder_block_forward(dec_x, enc_out, p, n_heads,
+                                         causal_mask_dt=self_mask_dt, enc_mask_dt=cross_mask_dt)
+        dec_caches.append(c)
+
+    dec_normed, lnc = layer_norm_forward(dec_x, final_ln_gamma, final_ln_beta)
+    B, T, D = dec_normed.shape
+    M = B * T
+    V = tgt_embed.shape[0]
+    dec_flat = pc.dt_reshape(dec_normed, [M, D])
+    # logits = dec_flat @ tgt_embed.T  (batch-1 bmm with transposed B)
+    logits = pc.dt_bmm(pc.dt_reshape(dec_flat, [1, M, D]),
+                       pc.dt_reshape(tgt_embed, [1, V, D]), transB=True)  # (1,M,V)
+    logits2 = pc.dt_reshape(logits, [M, V])
+    cache = (enc_caches, dec_caches, lnc, dec_flat, tgt_embed, B, T, D, M, V)
+    return logits2, cache
+
+
+def model_backward(grad_logits2, cache):
+    enc_caches, dec_caches, lnc, dec_flat, tgt_embed, B, T, D, M, V = cache
+    grad_logits = pc.dt_reshape(grad_logits2, [1, M, V])
+    # grad_dec_flat = grad_logits @ tgt_embed ; grad_tgt_embed(proj) = grad_logits.T @ dec_flat
+    grad_dec_flat = pc.dt_reshape(
+        pc.dt_bmm(grad_logits, pc.dt_reshape(tgt_embed, [1, V, D])), [M, D])
+    grad_tgt_embed_proj = pc.dt_reshape(
+        pc.dt_bmm(grad_logits, pc.dt_reshape(dec_flat, [1, M, D]), transA=True), [V, D])
+
+    grad_dec_x = pc.dt_reshape(grad_dec_flat, [B, T, D])
+    grad_dec_x, g_fg, g_fb = layer_norm_backward(grad_dec_x, lnc)
+
+    dec_grads = [None] * len(dec_caches)
+    grad_enc = None
+    for i in reversed(range(len(dec_caches))):
+        grad_dec_x, g_enc_c, dgrads = decoder_block_backward(grad_dec_x, dec_caches[i])
+        grad_enc = g_enc_c if grad_enc is None else pc.dt_add(grad_enc, g_enc_c)
+        dec_grads[i] = dgrads
+
+    grad_enc_x = grad_enc
+    enc_grads = [None] * len(enc_caches)
+    for i in reversed(range(len(enc_caches))):
+        grad_enc_x, egrads = encoder_block_backward(grad_enc_x, enc_caches[i])
+        enc_grads[i] = egrads
+
+    return {
+        'encoder_blocks': enc_grads,
+        'decoder_blocks': dec_grads,
+        'final_ln_gamma': g_fg, 'final_ln_beta': g_fb,
+        'grad_src_emb': grad_enc_x,           # grad w.r.t. encoder embedded input (B,S,D)
+        'grad_tgt_emb': grad_dec_x,           # grad w.r.t. decoder embedded input (B,T,D)
+        'grad_tgt_embed_proj': grad_tgt_embed_proj,  # (V,D) tied-weight grad from projection
+    }

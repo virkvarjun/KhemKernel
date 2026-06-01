@@ -210,6 +210,37 @@ DeviceTensor* dt_merge_heads(const DeviceTensor& y, int H){
     return x;
 }
 
+// Cross-entropy forward: logits resident (M,V); targets are tiny ints uploaded
+// here. Returns (loss, n_valid).
+py::tuple dt_cross_entropy_forward(const DeviceTensor& logits, i32arr targets, int ignore_index){
+    if (logits.shape.size() != 2) throw std::runtime_error("dt_cross_entropy: logits must be 2-D");
+    int M = static_cast<int>(logits.shape[0]);
+    int V = static_cast<int>(logits.shape[1]);
+    if (static_cast<int>(targets.size()) != M)
+        throw std::runtime_error("dt_cross_entropy: targets length must equal logits rows");
+    int* d_t;
+    CUDA_CHECK(cudaMalloc(&d_t, (size_t)M * sizeof(int)));
+    CUDA_CHECK(cudaMemcpy(d_t, targets.data(), (size_t)M * sizeof(int), cudaMemcpyHostToDevice));
+    float n_valid = 0.0f;
+    float loss = launch_cross_entropy_forward_device(logits.d, d_t, M, V, ignore_index, &n_valid);
+    CUDA_CHECK(cudaFree(d_t));
+    return py::make_tuple(loss, n_valid);
+}
+
+// Cross-entropy backward -> grad_logits (M,V) resident.
+DeviceTensor* dt_cross_entropy_backward(const DeviceTensor& logits, i32arr targets,
+                                        int ignore_index, float n_valid, float grad_loss){
+    int M = static_cast<int>(logits.shape[0]);
+    int V = static_cast<int>(logits.shape[1]);
+    int* d_t;
+    CUDA_CHECK(cudaMalloc(&d_t, (size_t)M * sizeof(int)));
+    CUDA_CHECK(cudaMemcpy(d_t, targets.data(), (size_t)M * sizeof(int), cudaMemcpyHostToDevice));
+    auto* g = new DeviceTensor(std::vector<py::ssize_t>{M, V});
+    launch_cross_entropy_backward_device(logits.d, d_t, g->d, M, V, ignore_index, n_valid, grad_loss);
+    CUDA_CHECK(cudaFree(d_t));
+    return g;
+}
+
 // Row-wise softmax over the last axis (any leading dims). Resident.
 DeviceTensor* dt_softmax(const DeviceTensor& x){
     if (x.shape.empty()) throw std::runtime_error("dt_softmax: need >=1-D");
@@ -529,6 +560,13 @@ PYBIND11_MODULE(picochem_cuda, m){
           "Device-resident layer norm fwd -> (y, x_hat, inv_std)");
     m.def("dt_layer_norm_backward", &dt_layer_norm_backward,
           "Device-resident layer norm backward -> (grad_x, grad_gamma, grad_beta)");
+    m.def("dt_cross_entropy_forward", &dt_cross_entropy_forward,
+          py::arg("logits"), py::arg("targets"), py::arg("ignore_index"),
+          "Device-resident softmax cross-entropy forward -> (loss, n_valid)");
+    m.def("dt_cross_entropy_backward", &dt_cross_entropy_backward,
+          py::arg("logits"), py::arg("targets"), py::arg("ignore_index"),
+          py::arg("n_valid"), py::arg("grad_loss"),
+          "Device-resident softmax cross-entropy backward -> grad_logits");
     m.def("dt_reshape", &dt_reshape, py::return_value_policy::take_ownership,
           py::arg("x"), py::arg("shape"), "Reshape a resident tensor (element count preserved)");
     m.def("dt_split_heads", &dt_split_heads, py::return_value_policy::take_ownership,
