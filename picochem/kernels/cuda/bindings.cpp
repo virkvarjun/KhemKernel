@@ -17,6 +17,7 @@
 #include "cross_entropy.h"
 #include "embedding.h"
 #include "adam.h"
+#include "bias.h"
 #include <cmath>
 #include <vector>
 #include <cuda_runtime.h>
@@ -126,6 +127,28 @@ DeviceTensor* dt_gelu_backward(const DeviceTensor& grad_y, const DeviceTensor& x
         throw std::runtime_error("dt_gelu_backward: size mismatch");
     auto* out = new DeviceTensor(x.shape);
     launch_gelu_backward_device(grad_y.d, x.d, out->d, static_cast<int>(x.n));
+    return out;
+}
+
+// Broadcast bias add: x(M,N) + b(N) -> (M,N).
+DeviceTensor* dt_add_bias(const DeviceTensor& x, const DeviceTensor& b){
+    if (x.shape.size() != 2) throw std::runtime_error("dt_add_bias: x must be 2-D");
+    int M = static_cast<int>(x.shape[0]);
+    int N = static_cast<int>(x.shape[1]);
+    if (static_cast<int>(b.n) != N)
+        throw std::runtime_error("dt_add_bias: bias length must equal x.shape[1]");
+    auto* out = new DeviceTensor(x.shape);
+    launch_add_bias_device(x.d, b.d, out->d, M, N);
+    return out;
+}
+
+// Column sum (bias gradient): x(M,N) -> (N,).
+DeviceTensor* dt_colsum(const DeviceTensor& x){
+    if (x.shape.size() != 2) throw std::runtime_error("dt_colsum: x must be 2-D");
+    int M = static_cast<int>(x.shape[0]);
+    int N = static_cast<int>(x.shape[1]);
+    auto* out = new DeviceTensor(std::vector<py::ssize_t>{N});
+    launch_colsum_device(x.d, out->d, M, N);
     return out;
 }
 
@@ -370,6 +393,10 @@ PYBIND11_MODULE(picochem_cuda, m){
           "Device-resident GeLU forward");
     m.def("dt_gelu_backward", &dt_gelu_backward, py::return_value_policy::take_ownership,
           "Device-resident GeLU backward");
+    m.def("dt_add_bias", &dt_add_bias, py::return_value_policy::take_ownership,
+          "Device-resident broadcast bias add x(M,N)+b(N)");
+    m.def("dt_colsum", &dt_colsum, py::return_value_policy::take_ownership,
+          "Device-resident column sum (Linear bias gradient)");
 
     m.def("vector_add",   &py_vector_add,   "Element-wise float32 vector addition");
     m.def("matmul_naive", &py_matmul_naive, "Naive CUDA matmul (float32, 2-D inputs)");

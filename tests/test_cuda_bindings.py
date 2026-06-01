@@ -104,6 +104,21 @@ def test_dt_gelu_parity():
     np.testing.assert_allclose(picochem_cuda.dt_gelu_backward(DT(grad_y), DT(x)).numpy(), bwd_ref, atol=1e-3)
 
 
+def test_dt_add_bias_parity():
+    x = rng.standard_normal((40, 64)).astype(np.float32)
+    b = rng.standard_normal(64).astype(np.float32)
+    DT = picochem_cuda.DeviceTensor
+    np.testing.assert_allclose(picochem_cuda.dt_add_bias(DT(x), DT(b)).numpy(), x + b, atol=1e-5)
+
+
+def test_dt_colsum_parity():
+    x = rng.standard_normal((40, 64)).astype(np.float32)
+    DT = picochem_cuda.DeviceTensor
+    out = picochem_cuda.dt_colsum(DT(x)).numpy()
+    assert list(out.shape) == [64]
+    np.testing.assert_allclose(out, x.sum(axis=0), atol=1e-3)
+
+
 def test_matmul_dA():
     """dA = dC @ Bᵀ for C = A @ B."""
     M, K, N = 40, 24, 56
