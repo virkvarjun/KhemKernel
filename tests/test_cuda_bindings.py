@@ -167,6 +167,23 @@ def test_dt_scale_parity():
     np.testing.assert_allclose(picochem_cuda.dt_scale(DT(x), 0.3535).numpy(), x * 0.3535, atol=1e-5)
 
 
+def test_dt_split_merge_heads_parity():
+    """Matches the model's reshape/transpose, and merge undoes split."""
+    DT = picochem_cuda.DeviceTensor
+    B, S, H, Dh = 2, 5, 4, 6
+    D = H * Dh
+    x = rng.standard_normal((B, S, D)).astype(np.float32)
+    # reference: (B,S,D)->(B,S,H,Dh)->transpose(0,2,1,3)->(B*H,S,Dh)
+    ref = x.reshape(B, S, H, Dh).transpose(0, 2, 1, 3).reshape(B * H, S, Dh)
+    y = picochem_cuda.dt_split_heads(DT(x), H)
+    assert list(y.shape) == [B * H, S, Dh]
+    np.testing.assert_array_equal(y.numpy(), ref)
+    # merge round-trips back to x
+    back = picochem_cuda.dt_merge_heads(y, H)
+    assert list(back.shape) == [B, S, D]
+    np.testing.assert_array_equal(back.numpy(), x)
+
+
 def test_dt_layer_norm_parity():
     from picochem.ops import layer_norm_forward, layer_norm_backward
     DT = picochem_cuda.DeviceTensor

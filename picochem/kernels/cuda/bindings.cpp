@@ -19,6 +19,7 @@
 #include "adam.h"
 #include "bias.h"
 #include "batched_matmul.h"
+#include "transpose.h"
 #include <cmath>
 #include <vector>
 #include <cuda_runtime.h>
@@ -171,6 +172,32 @@ DeviceTensor* dt_bmm(const DeviceTensor& A, const DeviceTensor& B,
     auto* C = new DeviceTensor(std::vector<py::ssize_t>{batch, Mr, Nr});
     launch_bmm_device(A.d, B.d, C->d, batch, Mr, Nr, Kc, transA ? 1 : 0, transB ? 1 : 0);
     return C;
+}
+
+// Split heads: x(B,S,D) -> (B*H, S, Dh), Dh = D/H. Resident.
+DeviceTensor* dt_split_heads(const DeviceTensor& x, int H){
+    if (x.shape.size() != 3) throw std::runtime_error("dt_split_heads: x must be (B,S,D)");
+    int B = static_cast<int>(x.shape[0]);
+    int S = static_cast<int>(x.shape[1]);
+    int D = static_cast<int>(x.shape[2]);
+    if (D % H != 0) throw std::runtime_error("dt_split_heads: D not divisible by H");
+    int Dh = D / H;
+    auto* y = new DeviceTensor(std::vector<py::ssize_t>{(py::ssize_t)B * H, S, Dh});
+    launch_split_heads_device(x.d, y->d, B, S, H, Dh);
+    return y;
+}
+
+// Merge heads: y(B*H, S, Dh) -> (B, S, H*Dh). Resident.
+DeviceTensor* dt_merge_heads(const DeviceTensor& y, int H){
+    if (y.shape.size() != 3) throw std::runtime_error("dt_merge_heads: y must be (B*H,S,Dh)");
+    int BH = static_cast<int>(y.shape[0]);
+    int S  = static_cast<int>(y.shape[1]);
+    int Dh = static_cast<int>(y.shape[2]);
+    if (BH % H != 0) throw std::runtime_error("dt_merge_heads: batch not divisible by H");
+    int B = BH / H;
+    auto* x = new DeviceTensor(std::vector<py::ssize_t>{B, S, (py::ssize_t)H * Dh});
+    launch_merge_heads_device(y.d, x->d, B, S, H, Dh);
+    return x;
 }
 
 // Row-wise softmax over the last axis (any leading dims). Resident.
@@ -492,6 +519,10 @@ PYBIND11_MODULE(picochem_cuda, m){
           "Device-resident layer norm fwd -> (y, x_hat, inv_std)");
     m.def("dt_layer_norm_backward", &dt_layer_norm_backward,
           "Device-resident layer norm backward -> (grad_x, grad_gamma, grad_beta)");
+    m.def("dt_split_heads", &dt_split_heads, py::return_value_policy::take_ownership,
+          py::arg("x"), py::arg("n_heads"), "Split heads: (B,S,D) -> (B*H,S,Dh)");
+    m.def("dt_merge_heads", &dt_merge_heads, py::return_value_policy::take_ownership,
+          py::arg("y"), py::arg("n_heads"), "Merge heads: (B*H,S,Dh) -> (B,S,D)");
 
     m.def("vector_add",   &py_vector_add,   "Element-wise float32 vector addition");
     m.def("matmul_naive", &py_matmul_naive, "Naive CUDA matmul (float32, 2-D inputs)");

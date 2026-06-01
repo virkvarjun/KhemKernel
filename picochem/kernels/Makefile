@@ -5,7 +5,7 @@ NVCC_FLAGS = -O3 -arch=$(CUDA_ARCH) -std=c++17
 CUDA_DIR = cuda
 TARGETS   = vector_add matmul_naive matmul_tiled matmul_backward \
             softmax softmax_backward layer_norm layer_norm_backward gelu \
-            cross_entropy embedding adam bias batched_matmul
+            cross_entropy embedding adam bias batched_matmul transpose
 SOURCES   = $(addprefix $(CUDA_DIR)/, $(addsuffix .cu, $(TARGETS)))
 OBJECTS   = $(addprefix $(CUDA_DIR)/, $(addsuffix .o,  $(TARGETS)))
 

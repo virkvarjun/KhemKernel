@@ -80,7 +80,7 @@ cu_sources = ["vector_add.cu", "matmul_naive.cu", "matmul_tiled.cu",
               "matmul_backward.cu", "softmax.cu", "softmax_backward.cu",
               "layer_norm.cu", "layer_norm_backward.cu", "gelu.cu",
               "cross_entropy.cu", "embedding.cu", "adam.cu", "bias.cu",
-              "batched_matmul.cu"]
+              "batched_matmul.cu", "transpose.cu"]
 objects = []
 
 for src in cu_sources:
