@@ -45,6 +45,15 @@ void launch_adam_update(float* h_param, const float* h_grad, float* h_m, float* 
     CUDA_CHECK(cudaFree(d_m)); CUDA_CHECK(cudaFree(d_v));
 }
 
+// Device-resident, in-place: param, m, v already on the GPU and updated there.
+void launch_adam_update_device(float* d_param, const float* d_grad, float* d_m, float* d_v,
+                               int n, float lr, float b1, float b2, float eps,
+                               float bc1, float bc2){
+    adam_update_kernel<<<(n + THREADS - 1) / THREADS, THREADS>>>(
+        d_param, d_grad, d_m, d_v, n, lr, b1, b2, eps, bc1, bc2);
+    CUDA_CHECK_KERNEL();
+}
+
 #ifdef BUILD_STANDALONE
 int main(){
     const int n = 4096;

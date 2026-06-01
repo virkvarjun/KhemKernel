@@ -9,3 +9,8 @@
 void launch_adam_update(float* h_param, const float* h_grad, float* h_m, float* h_v,
                         int n, float lr, float b1, float b2, float eps,
                         float bc1, float bc2);
+
+// Device-resident, in-place (param/m/v already on the GPU).
+void launch_adam_update_device(float* d_param, const float* d_grad, float* d_m, float* d_v,
+                               int n, float lr, float b1, float b2, float eps,
+                               float bc1, float bc2);

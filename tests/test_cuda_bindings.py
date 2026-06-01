@@ -436,3 +436,25 @@ def test_adam_update_parity():
     np.testing.assert_allclose(p_out, p_ref, atol=1e-5)
     np.testing.assert_allclose(m_out, state_ref["m"], atol=1e-5)
     np.testing.assert_allclose(v_out, state_ref["v"], atol=1e-6)
+
+
+def test_dt_adam_inplace_parity():
+    """In-place resident Adam matches optimizer.adam_step."""
+    from picochem.optimizer import adam_step
+    DT = picochem_cuda.DeviceTensor
+    n = 256
+    param = rng.standard_normal(n).astype(np.float32)
+    grad = rng.standard_normal(n).astype(np.float32)
+    m0 = (rng.standard_normal(n) * 0.1).astype(np.float32)
+    v0 = ((rng.standard_normal(n) * 0.1) ** 2).astype(np.float32)
+    step, lr, b1, b2, eps = 5, 1e-3, 0.9, 0.999, 1e-8
+
+    sref = {"m": m0.astype(np.float64).copy(), "v": v0.astype(np.float64).copy()}
+    pref = param.astype(np.float64).copy()
+    adam_step(pref, grad.astype(np.float64), sref, step, lr=lr, beta1=b1, beta2=b2, eps=eps)
+
+    pdt, mdt, vdt = DT(param), DT(m0), DT(v0)
+    picochem_cuda.dt_adam(pdt, DT(grad), mdt, vdt, step, lr, b1, b2, eps)
+    np.testing.assert_allclose(pdt.numpy(), pref, atol=1e-5)
+    np.testing.assert_allclose(mdt.numpy(), sref["m"], atol=1e-5)
+    np.testing.assert_allclose(vdt.numpy(), sref["v"], atol=1e-6)

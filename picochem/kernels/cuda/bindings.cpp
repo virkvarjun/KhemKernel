@@ -174,6 +174,18 @@ DeviceTensor* dt_bmm(const DeviceTensor& A, const DeviceTensor& B,
     return C;
 }
 
+// In-place Adam step on resident tensors: param, m, v are updated on the GPU.
+void dt_adam(DeviceTensor& param, const DeviceTensor& grad,
+             DeviceTensor& m, DeviceTensor& v,
+             int step, float lr, float b1, float b2, float eps){
+    int n = static_cast<int>(param.n);
+    if (grad.n != param.n || m.n != param.n || v.n != param.n)
+        throw std::runtime_error("dt_adam: param/grad/m/v size mismatch");
+    float bc1 = 1.0f - std::pow(b1, step);
+    float bc2 = 1.0f - std::pow(b2, step);
+    launch_adam_update_device(param.d, grad.d, m.d, v.d, n, lr, b1, b2, eps, bc1, bc2);
+}
+
 // Reshape (metadata change). Element count must match; data stays on the GPU
 // via a device-to-device copy (keeps DeviceTensor's single-owner model simple).
 DeviceTensor* dt_reshape(const DeviceTensor& x, std::vector<py::ssize_t> shape){
@@ -569,6 +581,10 @@ PYBIND11_MODULE(picochem_cuda, m){
           "Device-resident softmax cross-entropy backward -> grad_logits");
     m.def("dt_reshape", &dt_reshape, py::return_value_policy::take_ownership,
           py::arg("x"), py::arg("shape"), "Reshape a resident tensor (element count preserved)");
+    m.def("dt_adam", &dt_adam,
+          py::arg("param"), py::arg("grad"), py::arg("m"), py::arg("v"),
+          py::arg("step"), py::arg("lr"), py::arg("beta1"), py::arg("beta2"), py::arg("eps"),
+          "In-place Adam step on resident param/m/v");
     m.def("dt_split_heads", &dt_split_heads, py::return_value_policy::take_ownership,
           py::arg("x"), py::arg("n_heads"), "Split heads: (B,S,D) -> (B*H,S,Dh)");
     m.def("dt_merge_heads", &dt_merge_heads, py::return_value_policy::take_ownership,

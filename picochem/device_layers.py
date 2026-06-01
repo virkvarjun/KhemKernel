@@ -11,9 +11,19 @@ same Linear x@W+b convention), so each piece is gradient-checked against it.
 Requires the built extension: `bash scripts/build_cuda.sh` then ensure
 picochem/kernels is importable (PYTHONPATH=picochem/kernels).
 """
+import numpy as np
 import picochem_cuda as pc
 
 DT = pc.DeviceTensor
+
+
+def to_dt(arr):
+    """numpy array -> float32 DeviceTensor."""
+    return DT(np.asarray(arr, dtype=np.float32))
+
+
+def zeros_like_dt(dt):
+    return DT(np.zeros(list(dt.shape), dtype=np.float32))
 
 
 # ── Linear (operates on 2-D (M, K)) ──────────────────────────────────────────
