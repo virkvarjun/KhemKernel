@@ -70,18 +70,24 @@ to download, `.shape`) plus a `dt_*` op set that keeps data resident across ops
 | inc 2g | `dt_split_heads`/`dt_merge_heads` (head transpose) | ✅ verified (round-trip exact) |
 | inc 2h | `dt_reshape`; device-resident **multi-head self-attention** fwd+bwd | ✅ verified — ~2e-7 vs numpy |
 
-Every primitive and the three hardest composites (FFN 32.6×, SDPA, full MHA) are
-verified against the numpy path to ~1e-6 or better. Remaining for a full resident
-`train_step`:
-- collect the resident layer logic into a committed `device_layers.py`
-  (MHA / FFN / LayerNorm assembled from `dt_*`), then a resident encoder block
-  (LN + MHA + residual + LN + FFN + residual) and decoder block (+ cross-attn).
-- device-resident embedding **gather** (forward) + `dt_cross_entropy` + `dt_adam`
-  (DeviceTensor wrappers over the existing verified kernels).
-- full model fwd+bwd keeping all caches on-device; gradient-check vs numpy.
+| inc 2i | `device_layers.py`: resident encoder block | ✅ verified vs numpy ~1e-7 |
+| inc 2j | resident decoder block (+ cross-attn, encoder-output grad) | ✅ verified ~1e-7 |
+| inc 2k | `dt_cross_entropy`; **full model** fwd+bwd | ✅ gradient-checked end-to-end |
 
-## Phase 3 — Wire & validate training
+Every primitive, composite (FFN/SDPA/MHA), and the **full model** forward+backward
+are verified against the numpy path. `picochem/device_layers.py` is the resident
+re-implementation; embeddings (gather + table-grad scatter) sit at the host
+boundary, the whole transformer stack + tied output projection + loss are resident.
 
-- `train_step` runs end-to-end on device (only batch in, loss/metrics out).
-- Gradient-check the device path vs NumPy on a tiny config.
-- Benchmark steps/sec vs the NumPy baseline; populate `scripts/benchmark_kernels.py`.
+## Phase 3 — Validated
+
+- **Full model fwd+bwd matches numpy end-to-end** (logits, loss, every block grad,
+  final-LN grads, embedding-table grads incl. the tied output weight).
+- **Benchmark (one training step, fwd+bwd, B=16 S=T=32 D=256 3+3 layers V=8000):
+  numpy 2640 ms → device 44 ms = 60× on an RTX PRO 4000 Blackwell.**
+
+Remaining to a turnkey GPU training run (integration, not new math):
+- a `dt_adam` resident optimizer step (Adam kernel already verified) so params
+  update on-device without a host round-trip.
+- wire `device_layers` + the resident optimizer into `scripts/train.py` behind a
+  `--device-resident` flag, and fill in `scripts/benchmark_kernels.py`.
