@@ -200,6 +200,40 @@ DeviceTensor* dt_scale(const DeviceTensor& x, float alpha){
     return out;
 }
 
+// Layer-norm forward over the last axis. Returns (y, x_hat, inv_std), where
+// x_hat/inv_std are the cache the backward pass consumes. Resident.
+py::tuple dt_layer_norm(const DeviceTensor& x, const DeviceTensor& gamma, const DeviceTensor& beta){
+    if (x.shape.empty()) throw std::runtime_error("dt_layer_norm: need >=1-D");
+    int N = static_cast<int>(x.shape.back());
+    int M = static_cast<int>(x.n) / N;
+    if (static_cast<int>(gamma.n) != N || static_cast<int>(beta.n) != N)
+        throw std::runtime_error("dt_layer_norm: gamma/beta length must equal last dim");
+    auto* y     = new DeviceTensor(x.shape);
+    auto* xhat  = new DeviceTensor(x.shape);
+    auto* istd  = new DeviceTensor(std::vector<py::ssize_t>{M});
+    launch_layer_norm_fwd_device(x.d, gamma.d, beta.d, y->d, xhat->d, istd->d, M, N);
+    return py::make_tuple(py::cast(y, py::return_value_policy::take_ownership),
+                          py::cast(xhat, py::return_value_policy::take_ownership),
+                          py::cast(istd, py::return_value_policy::take_ownership));
+}
+
+// Layer-norm backward. inv_std is (M,) flattened. Returns (grad_x, grad_gamma, grad_beta).
+py::tuple dt_layer_norm_backward(const DeviceTensor& grad_y, const DeviceTensor& x_hat,
+                                 const DeviceTensor& gamma, const DeviceTensor& inv_std){
+    int N = static_cast<int>(x_hat.shape.back());
+    int M = static_cast<int>(x_hat.n) / N;
+    if (static_cast<int>(gamma.n) != N) throw std::runtime_error("dt_layer_norm_backward: gamma size");
+    if (static_cast<int>(inv_std.n) != M) throw std::runtime_error("dt_layer_norm_backward: inv_std size");
+    auto* gx = new DeviceTensor(x_hat.shape);
+    auto* gg = new DeviceTensor(std::vector<py::ssize_t>{N});
+    auto* gb = new DeviceTensor(std::vector<py::ssize_t>{N});
+    launch_layer_norm_backward_device(grad_y.d, x_hat.d, gamma.d, inv_std.d,
+                                      gx->d, gg->d, gb->d, M, N);
+    return py::make_tuple(py::cast(gx, py::return_value_policy::take_ownership),
+                          py::cast(gg, py::return_value_policy::take_ownership),
+                          py::cast(gb, py::return_value_policy::take_ownership));
+}
+
 static void require_ndim(const f32arr& a, int ndim, const char* name){
     if (static_cast<int>(a.ndim()) != ndim)
         throw std::runtime_error(
@@ -454,6 +488,10 @@ PYBIND11_MODULE(picochem_cuda, m){
           "Device-resident pure-softmax backward over the last axis");
     m.def("dt_scale", &dt_scale, py::return_value_policy::take_ownership,
           py::arg("x"), py::arg("alpha"), "Device-resident scalar multiply x*alpha");
+    m.def("dt_layer_norm", &dt_layer_norm,
+          "Device-resident layer norm fwd -> (y, x_hat, inv_std)");
+    m.def("dt_layer_norm_backward", &dt_layer_norm_backward,
+          "Device-resident layer norm backward -> (grad_x, grad_gamma, grad_beta)");
 
     m.def("vector_add",   &py_vector_add,   "Element-wise float32 vector addition");
     m.def("matmul_naive", &py_matmul_naive, "Naive CUDA matmul (float32, 2-D inputs)");

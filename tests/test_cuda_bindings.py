@@ -167,6 +167,32 @@ def test_dt_scale_parity():
     np.testing.assert_allclose(picochem_cuda.dt_scale(DT(x), 0.3535).numpy(), x * 0.3535, atol=1e-5)
 
 
+def test_dt_layer_norm_parity():
+    from picochem.ops import layer_norm_forward, layer_norm_backward
+    DT = picochem_cuda.DeviceTensor
+    M, N = 24, 64
+    x = rng.standard_normal((M, N)).astype(np.float64)
+    gamma = (rng.standard_normal(N) + 1.0).astype(np.float64)
+    beta = rng.standard_normal(N).astype(np.float64)
+    grad_y = rng.standard_normal((M, N)).astype(np.float64)
+
+    y_ref, cache = layer_norm_forward(x, gamma, beta)
+    x_hat_ref, _, inv_std_ref = cache
+    gx_ref, gg_ref, gb_ref = layer_norm_backward(grad_y, cache)
+
+    y, x_hat, inv_std = picochem_cuda.dt_layer_norm(
+        DT(x.astype(np.float32)), DT(gamma.astype(np.float32)), DT(beta.astype(np.float32)))
+    np.testing.assert_allclose(y.numpy(), y_ref, atol=1e-3)
+    np.testing.assert_allclose(x_hat.numpy(), x_hat_ref, atol=1e-3)
+    np.testing.assert_allclose(inv_std.numpy(), inv_std_ref.reshape(-1), atol=1e-3)
+
+    gx, gg, gb = picochem_cuda.dt_layer_norm_backward(
+        DT(grad_y.astype(np.float32)), x_hat, DT(gamma.astype(np.float32)), inv_std)
+    np.testing.assert_allclose(gx.numpy(), gx_ref, atol=1e-3)
+    np.testing.assert_allclose(gg.numpy(), gg_ref, atol=1e-2)
+    np.testing.assert_allclose(gb.numpy(), gb_ref, atol=1e-2)
+
+
 def test_matmul_dA():
     """dA = dC @ Bᵀ for C = A @ B."""
     M, K, N = 40, 24, 56

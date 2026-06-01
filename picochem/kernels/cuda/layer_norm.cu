@@ -71,6 +71,40 @@ void launch_layer_norm(const float* h_x, const float* h_gamma, const float* h_be
     CUDA_CHECK(cudaFree(d_b)); CUDA_CHECK(cudaFree(d_out));
 }
 
+// Device-resident forward that also emits x_hat and inv_std for the backward
+// pass (one block per row). Avoids recomputing statistics in backward.
+__global__ void ln_fwd_cache_kernel(const float* x, const float* gamma, const float* beta,
+                                    float* y, float* xhat, float* invstd, int M, int N){
+    int row = blockIdx.x, tid = threadIdx.x;
+    if (row >= M) return;
+    __shared__ float sh[THREADS];
+
+    float ls = 0.0f;
+    for (int j = tid; j < N; j += THREADS) ls += x[row * N + j];
+    sh[tid] = ls; __syncthreads();
+    for (int s = THREADS / 2; s > 0; s /= 2){ if (tid < s) sh[tid] += sh[tid + s]; __syncthreads(); }
+    float mean = sh[0] / N; __syncthreads();
+
+    float lv = 0.0f;
+    for (int j = tid; j < N; j += THREADS){ float d = x[row * N + j] - mean; lv += d * d; }
+    sh[tid] = lv; __syncthreads();
+    for (int s = THREADS / 2; s > 0; s /= 2){ if (tid < s) sh[tid] += sh[tid + s]; __syncthreads(); }
+    float istd = rsqrtf(sh[0] / N + EPS);
+    if (tid == 0) invstd[row] = istd;
+
+    for (int j = tid; j < N; j += THREADS){
+        float xh = (x[row * N + j] - mean) * istd;
+        xhat[row * N + j] = xh;
+        y[row * N + j] = gamma[j] * xh + beta[j];
+    }
+}
+
+void launch_layer_norm_fwd_device(const float* d_x, const float* d_gamma, const float* d_beta,
+                                  float* d_y, float* d_xhat, float* d_invstd, int M, int N){
+    ln_fwd_cache_kernel<<<M, THREADS>>>(d_x, d_gamma, d_beta, d_y, d_xhat, d_invstd, M, N);
+    CUDA_CHECK_KERNEL();
+}
+
 #ifdef BUILD_STANDALONE
 int main(){
     const int M = 64, N = 768;

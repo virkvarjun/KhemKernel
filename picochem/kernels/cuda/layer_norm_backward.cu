@@ -89,6 +89,17 @@ void launch_layer_norm_backward(const float* h_grad_y, const float* h_x_hat,
     CUDA_CHECK(cudaFree(d_gg)); CUDA_CHECK(cudaFree(d_gb));
 }
 
+// Device-resident: all pointers already on the GPU, no copies.
+void launch_layer_norm_backward_device(const float* d_grad_y, const float* d_x_hat,
+                                       const float* d_gamma, const float* d_inv_std,
+                                       float* d_grad_x, float* d_grad_gamma, float* d_grad_beta,
+                                       int M, int N){
+    ln_grad_x_kernel<<<M, THREADS>>>(d_grad_y, d_x_hat, d_gamma, d_inv_std, d_grad_x, M, N);
+    CUDA_CHECK_KERNEL();
+    ln_grad_params_kernel<<<(N + THREADS - 1) / THREADS, THREADS>>>(d_grad_y, d_x_hat, d_grad_gamma, d_grad_beta, M, N);
+    CUDA_CHECK_KERNEL();
+}
+
 #ifdef BUILD_STANDALONE
 int main(){
     const int M = 24, N = 64;

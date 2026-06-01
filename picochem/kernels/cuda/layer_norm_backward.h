@@ -11,3 +11,9 @@ void launch_layer_norm_backward(const float* h_grad_y, const float* h_x_hat,
                                 const float* h_gamma, const float* h_inv_std,
                                 float* h_grad_x, float* h_grad_gamma, float* h_grad_beta,
                                 int M, int N);
+
+// Device-resident variant (all pointers already on the GPU, no copies).
+void launch_layer_norm_backward_device(const float* d_grad_y, const float* d_x_hat,
+                                       const float* d_gamma, const float* d_inv_std,
+                                       float* d_grad_x, float* d_grad_gamma, float* d_grad_beta,
+                                       int M, int N);
