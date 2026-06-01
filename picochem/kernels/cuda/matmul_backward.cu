@@ -117,6 +117,24 @@ void launch_matmul_dB(const float* h_A, const float* h_dC, float* h_dB,
     CUDA_CHECK(cudaFree(d_dB));
 }
 
+// ── device-resident launchers (pointers already on the GPU, no copies) ───────
+
+void launch_matmul_dA_device(const float* d_dC, const float* d_B, float* d_dA,
+                             int M, int N, int K){
+    dim3 threads(TILE, TILE);
+    dim3 blocks((K + TILE - 1) / TILE, (M + TILE - 1) / TILE);
+    matmul_nt_kernel<<<blocks, threads>>>(d_dC, d_B, d_dA, M, K, N);
+    CUDA_CHECK_KERNEL();
+}
+
+void launch_matmul_dB_device(const float* d_A, const float* d_dC, float* d_dB,
+                             int M, int N, int K){
+    dim3 threads(TILE, TILE);
+    dim3 blocks((N + TILE - 1) / TILE, (K + TILE - 1) / TILE);
+    matmul_tn_kernel<<<blocks, threads>>>(d_A, d_dC, d_dB, K, N, M);
+    CUDA_CHECK_KERNEL();
+}
+
 #ifdef BUILD_STANDALONE
 int main(){
     // Small problem with a CPU reference for both dA and dB.

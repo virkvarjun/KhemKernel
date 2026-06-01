@@ -28,6 +28,14 @@ void launch_vector_add(const float* h_a, const float* h_b, float* h_c, int N){
     CUDA_CHECK(cudaFree(d_c));
 }
 
+// Device-resident: pointers already on the GPU, no copies.
+void launch_vector_add_device(const float* d_a, const float* d_b, float* d_c, int N){
+    const int threads = 256;
+    const int blocks = (N + threads - 1) / threads;
+    vecAdd<<<blocks, threads>>>(d_a, d_b, d_c, N);
+    CUDA_CHECK_KERNEL();
+}
+
 #ifdef BUILD_STANDALONE
 int main(){
     const int N = 1'000'000;

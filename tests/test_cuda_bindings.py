@@ -73,6 +73,37 @@ def test_dt_matmul_parity():
     assert list(dD.shape) == [M, 16]
 
 
+def test_dt_matmul_backward_parity():
+    """Device-resident Linear backward matches numpy."""
+    M, K, N = 40, 24, 56
+    W = rng.standard_normal((K, N)).astype(np.float32)
+    x = rng.standard_normal((M, K)).astype(np.float32)
+    grad_y = rng.standard_normal((M, N)).astype(np.float32)
+    DT = picochem_cuda.DeviceTensor
+    gx = picochem_cuda.dt_matmul_dA(DT(grad_y), DT(W)).numpy()   # grad_y @ W.T
+    gW = picochem_cuda.dt_matmul_dB(DT(x), DT(grad_y)).numpy()   # x.T @ grad_y
+    np.testing.assert_allclose(gx, grad_y @ W.T, atol=1e-3)
+    np.testing.assert_allclose(gW, x.T @ grad_y, atol=1e-3)
+
+
+def test_dt_add_parity():
+    a = rng.standard_normal((16, 32)).astype(np.float32)
+    b = rng.standard_normal((16, 32)).astype(np.float32)
+    DT = picochem_cuda.DeviceTensor
+    np.testing.assert_allclose(picochem_cuda.dt_add(DT(a), DT(b)).numpy(), a + b, atol=1e-5)
+
+
+def test_dt_gelu_parity():
+    from picochem.ops import gelu_forward, gelu_backward
+    x = (rng.standard_normal((16, 64)).astype(np.float32) * 3.0)
+    grad_y = rng.standard_normal((16, 64)).astype(np.float32)
+    DT = picochem_cuda.DeviceTensor
+    fwd_ref, cache = gelu_forward(x.astype(np.float64))
+    (bwd_ref,) = gelu_backward(grad_y.astype(np.float64), cache)
+    np.testing.assert_allclose(picochem_cuda.dt_gelu_forward(DT(x)).numpy(), fwd_ref, atol=1e-3)
+    np.testing.assert_allclose(picochem_cuda.dt_gelu_backward(DT(grad_y), DT(x)).numpy(), bwd_ref, atol=1e-3)
+
+
 def test_matmul_dA():
     """dA = dC @ Bᵀ for C = A @ B."""
     M, K, N = 40, 24, 56

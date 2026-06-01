@@ -58,6 +58,19 @@ void launch_gelu_backward(const float* h_grad_y, const float* h_x,
     CUDA_CHECK(cudaFree(d_gx));
 }
 
+// ── device-resident launchers (pointers already on the GPU, no copies) ───────
+
+void launch_gelu_forward_device(const float* d_x, float* d_out, int N){
+    gelu_forward_kernel<<<(N + THREADS - 1) / THREADS, THREADS>>>(d_x, d_out, N);
+    CUDA_CHECK_KERNEL();
+}
+
+void launch_gelu_backward_device(const float* d_grad_y, const float* d_x,
+                                 float* d_grad_x, int N){
+    gelu_backward_kernel<<<(N + THREADS - 1) / THREADS, THREADS>>>(d_grad_y, d_x, d_grad_x, N);
+    CUDA_CHECK_KERNEL();
+}
+
 #ifdef BUILD_STANDALONE
 int main(){
     const int N = 4096;

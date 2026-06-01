@@ -75,6 +75,60 @@ DeviceTensor* dt_matmul(const DeviceTensor& A, const DeviceTensor& B){
     return C;
 }
 
+// Device-resident Linear backward: grad_x = grad_y @ Wᵀ.
+// dC = grad_y (M,N), B = W (K,N) -> dA = grad_x (M,K).
+DeviceTensor* dt_matmul_dA(const DeviceTensor& dC, const DeviceTensor& B){
+    if (dC.shape.size() != 2 || B.shape.size() != 2)
+        throw std::runtime_error("dt_matmul_dA: operands must be 2-D");
+    int M = static_cast<int>(dC.shape[0]);
+    int N = static_cast<int>(dC.shape[1]);
+    int K = static_cast<int>(B.shape[0]);
+    if (static_cast<int>(B.shape[1]) != N)
+        throw std::runtime_error("dt_matmul_dA: B.shape[1] must equal dC.shape[1]");
+    auto* dA = new DeviceTensor(std::vector<py::ssize_t>{M, K});
+    launch_matmul_dA_device(dC.d, B.d, dA->d, M, N, K);
+    return dA;
+}
+
+// Device-resident Linear backward: grad_W = xᵀ @ grad_y.
+// A = x (M,K), dC = grad_y (M,N) -> dB = grad_W (K,N).
+DeviceTensor* dt_matmul_dB(const DeviceTensor& A, const DeviceTensor& dC){
+    if (A.shape.size() != 2 || dC.shape.size() != 2)
+        throw std::runtime_error("dt_matmul_dB: operands must be 2-D");
+    int M = static_cast<int>(A.shape[0]);
+    int K = static_cast<int>(A.shape[1]);
+    int N = static_cast<int>(dC.shape[1]);
+    if (static_cast<int>(dC.shape[0]) != M)
+        throw std::runtime_error("dt_matmul_dB: dC.shape[0] must equal A.shape[0]");
+    auto* dB = new DeviceTensor(std::vector<py::ssize_t>{K, N});
+    launch_matmul_dB_device(A.d, dC.d, dB->d, M, N, K);
+    return dB;
+}
+
+// Element-wise add of two equally-shaped device tensors.
+DeviceTensor* dt_add(const DeviceTensor& a, const DeviceTensor& b){
+    if (a.n != b.n)
+        throw std::runtime_error("dt_add: size mismatch");
+    auto* out = new DeviceTensor(a.shape);
+    launch_vector_add_device(a.d, b.d, out->d, static_cast<int>(a.n));
+    return out;
+}
+
+// GeLU forward / backward on resident tensors (same shape out).
+DeviceTensor* dt_gelu_forward(const DeviceTensor& x){
+    auto* out = new DeviceTensor(x.shape);
+    launch_gelu_forward_device(x.d, out->d, static_cast<int>(x.n));
+    return out;
+}
+
+DeviceTensor* dt_gelu_backward(const DeviceTensor& grad_y, const DeviceTensor& x){
+    if (grad_y.n != x.n)
+        throw std::runtime_error("dt_gelu_backward: size mismatch");
+    auto* out = new DeviceTensor(x.shape);
+    launch_gelu_backward_device(grad_y.d, x.d, out->d, static_cast<int>(x.n));
+    return out;
+}
+
 static void require_ndim(const f32arr& a, int ndim, const char* name){
     if (static_cast<int>(a.ndim()) != ndim)
         throw std::runtime_error(
@@ -306,6 +360,16 @@ PYBIND11_MODULE(picochem_cuda, m){
         .def_property_readonly("shape", &DeviceTensor::get_shape);
     m.def("dt_matmul", &dt_matmul, py::return_value_policy::take_ownership,
           "Device-resident matmul: DeviceTensor(M,K) @ DeviceTensor(K,N) -> DeviceTensor(M,N)");
+    m.def("dt_matmul_dA", &dt_matmul_dA, py::return_value_policy::take_ownership,
+          "Device-resident Linear backward grad_x = grad_y @ Wᵀ");
+    m.def("dt_matmul_dB", &dt_matmul_dB, py::return_value_policy::take_ownership,
+          "Device-resident Linear backward grad_W = xᵀ @ grad_y");
+    m.def("dt_add", &dt_add, py::return_value_policy::take_ownership,
+          "Device-resident element-wise add");
+    m.def("dt_gelu_forward", &dt_gelu_forward, py::return_value_policy::take_ownership,
+          "Device-resident GeLU forward");
+    m.def("dt_gelu_backward", &dt_gelu_backward, py::return_value_policy::take_ownership,
+          "Device-resident GeLU backward");
 
     m.def("vector_add",   &py_vector_add,   "Element-wise float32 vector addition");
     m.def("matmul_naive", &py_matmul_naive, "Naive CUDA matmul (float32, 2-D inputs)");
