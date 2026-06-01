@@ -59,6 +59,15 @@ void launch_matmul_tiled(const float* h_A, const float* h_B, float* h_C,
     CUDA_CHECK(cudaFree(d_C));
 }
 
+// Device-resident: pointers already on the GPU, just launch the kernel.
+void launch_matmul_tiled_device(const float* d_A, const float* d_B, float* d_C,
+                                int M, int N, int K){
+    dim3 threads(TILE, TILE);
+    dim3 blocks((N + TILE - 1) / TILE, (M + TILE - 1) / TILE);
+    matmul_tiled_kernel<<<blocks, threads>>>(d_A, d_B, d_C, M, N, K);
+    CUDA_CHECK_KERNEL();
+}
+
 #ifdef BUILD_STANDALONE
 int main(){
     const int M = 1024, K = 1024, N = 1024;

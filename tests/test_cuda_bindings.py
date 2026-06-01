@@ -50,6 +50,29 @@ def test_matmul_tiled():
     np.testing.assert_allclose(out, expected, atol=1e-3)
 
 
+def test_device_tensor_roundtrip():
+    """Upload to GPU and back must be a no-op (float32)."""
+    x = rng.standard_normal((7, 13)).astype(np.float32)
+    dt = picochem_cuda.DeviceTensor(x)
+    assert list(dt.shape) == [7, 13]
+    np.testing.assert_array_equal(dt.numpy(), x)
+
+
+def test_dt_matmul_parity():
+    """Device-resident matmul matches numpy; inputs stay on the GPU."""
+    M, K, N = 64, 48, 80
+    A = rng.standard_normal((M, K)).astype(np.float32)
+    B = rng.standard_normal((K, N)).astype(np.float32)
+    dA = picochem_cuda.DeviceTensor(A)
+    dB = picochem_cuda.DeviceTensor(B)
+    dC = picochem_cuda.dt_matmul(dA, dB)
+    assert list(dC.shape) == [M, N]
+    np.testing.assert_allclose(dC.numpy(), A @ B, atol=1e-3)
+    # Result is itself a DeviceTensor and can feed another op without leaving the GPU.
+    dD = picochem_cuda.dt_matmul(dC, picochem_cuda.DeviceTensor(rng.standard_normal((N, 16)).astype(np.float32)))
+    assert list(dD.shape) == [M, 16]
+
+
 def test_matmul_dA():
     """dA = dC @ Bᵀ for C = A @ B."""
     M, K, N = 40, 24, 56
