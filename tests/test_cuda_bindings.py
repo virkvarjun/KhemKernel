@@ -246,24 +246,25 @@ def test_embedding_backward_parity():
 
 
 def test_adam_update_parity():
-    from picochem.optimizer import init_adam_state, adam_step
+    from picochem.optimizer import adam_step
     n = 512
     param = rng.standard_normal(n).astype(np.float64)
     grad = rng.standard_normal(n).astype(np.float64)
-    state = init_adam_state(param)
-    state["m"] = rng.standard_normal(n).astype(np.float64) * 0.1
-    state["v"] = (rng.standard_normal(n).astype(np.float64) * 0.1) ** 2
+    m0 = rng.standard_normal(n).astype(np.float64) * 0.1
+    v0 = (rng.standard_normal(n).astype(np.float64) * 0.1) ** 2
     step, lr, b1, b2, eps = 7, 1e-3, 0.9, 0.999, 1e-8
 
+    # adam_step rebinds state["m"]/["v"] to new arrays, so read the updated
+    # values back out of the dict rather than from the originals.
     p_ref = param.copy()
-    m_ref, v_ref = state["m"].copy(), state["v"].copy()
-    adam_step(p_ref, grad, {"m": m_ref, "v": v_ref}, step, lr=lr, beta1=b1, beta2=b2, eps=eps)
+    state_ref = {"m": m0.copy(), "v": v0.copy()}
+    adam_step(p_ref, grad, state_ref, step, lr=lr, beta1=b1, beta2=b2, eps=eps)
 
     p_out, m_out, v_out = picochem_cuda.adam_update(
         param.astype(np.float32), grad.astype(np.float32),
-        state["m"].astype(np.float32), state["v"].astype(np.float32),
+        m0.astype(np.float32), v0.astype(np.float32),
         step, lr, b1, b2, eps,
     )
     np.testing.assert_allclose(p_out, p_ref, atol=1e-5)
-    np.testing.assert_allclose(m_out, m_ref, atol=1e-5)
-    np.testing.assert_allclose(v_out, v_ref, atol=1e-6)
+    np.testing.assert_allclose(m_out, state_ref["m"], atol=1e-5)
+    np.testing.assert_allclose(v_out, state_ref["v"], atol=1e-6)

@@ -34,16 +34,19 @@ Each op backprop needs a kernel. Math (forward → backward):
 
 | Kernel | Backward computed | Status |
 |---|---|---|
-| `matmul_backward` | `dA = dC·Bᵀ`, `dB = Aᵀ·dC` | written, unverified |
-| `gelu` (fwd+bwd)  | tanh-approx gelu and its derivative | written, unverified |
-| `layer_norm_backward` | `dx`, `dγ`, `dβ` (Bessel-corrected) | written, unverified |
-| `softmax_backward` | `dz = p ⊙ (dy − Σ(dy⊙p))` (pure softmax, for attention) | written, unverified |
-| `cross_entropy` (fwd+bwd) | NLL loss; `(softmax − onehot)/n_valid`, pad-masked | written, unverified |
-| `embedding_backward` | scatter-add grad rows by token id (`atomicAdd`) | written, unverified |
-| `adam_update` | in-place Adam step over a flat buffer | written, unverified |
+| `matmul_backward` | `dA = dC·Bᵀ`, `dB = Aᵀ·dC` | ✅ verified |
+| `gelu` (fwd+bwd)  | tanh-approx gelu and its derivative | ✅ verified |
+| `layer_norm_backward` | `dx`, `dγ`, `dβ` (Bessel-corrected) | ✅ verified |
+| `softmax_backward` | `dz = p ⊙ (dy − Σ(dy⊙p))` (pure softmax, for attention) | ✅ verified |
+| `cross_entropy` (fwd+bwd) | NLL loss; `(softmax − onehot)/n_valid`, pad-masked | ✅ verified |
+| `embedding_backward` | scatter-add grad rows by token id (`atomicAdd`) | ✅ verified |
+| `adam_update` | in-place Adam step over a flat buffer | ✅ verified |
 
-All Phase-1 kernels are written with standalone self-tests and pytest parity
-tests, but **none are verified on hardware yet** — build and run them on the pod.
+**Phase 1 verified** on an RTX PRO 4000 Blackwell (cc 12.0) with CUDA 12.4 +
+driver 580. All standalone self-tests pass (max errors 1e-7…1e-10) and all 17
+`tests/test_cuda_bindings.py` parity cases pass. Because the 12.4 toolkit can't
+target `sm_120`, the build emits `compute_90` PTX and the driver JITs it onto the
+GPU at runtime — `setup.py` now does this fallback automatically.
 
 Exit criterion: `--backend cuda` runs full fwd+bwd and matches the NumPy path on
 a tiny model within ~1e-3 (fp32).
