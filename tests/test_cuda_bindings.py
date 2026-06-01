@@ -142,6 +142,31 @@ def test_dt_bmm_parity():
                                W.transpose(0, 2, 1) @ g, atol=1e-3)
 
 
+def test_dt_softmax_parity():
+    DT = picochem_cuda.DeviceTensor
+    x = rng.standard_normal((6, 10, 12)).astype(np.float32)  # (batch, T, S)
+    e = np.exp(x - x.max(axis=-1, keepdims=True))
+    ref = (e / e.sum(axis=-1, keepdims=True)).astype(np.float32)
+    np.testing.assert_allclose(picochem_cuda.dt_softmax(DT(x)).numpy(), ref, atol=1e-5)
+
+
+def test_dt_softmax_backward_parity():
+    from picochem.ops import softmax_backward_pure
+    DT = picochem_cuda.DeviceTensor
+    x = rng.standard_normal((6, 10, 12)).astype(np.float32)
+    e = np.exp(x - x.max(axis=-1, keepdims=True))
+    probs = (e / e.sum(axis=-1, keepdims=True)).astype(np.float32)
+    g = rng.standard_normal((6, 10, 12)).astype(np.float32)
+    (ref,) = softmax_backward_pure(g.astype(np.float64), (probs.astype(np.float64),))
+    np.testing.assert_allclose(picochem_cuda.dt_softmax_backward(DT(g), DT(probs)).numpy(), ref, atol=1e-4)
+
+
+def test_dt_scale_parity():
+    DT = picochem_cuda.DeviceTensor
+    x = rng.standard_normal((8, 16)).astype(np.float32)
+    np.testing.assert_allclose(picochem_cuda.dt_scale(DT(x), 0.3535).numpy(), x * 0.3535, atol=1e-5)
+
+
 def test_matmul_dA():
     """dA = dC @ Bᵀ for C = A @ B."""
     M, K, N = 40, 24, 56

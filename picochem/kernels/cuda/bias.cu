@@ -13,6 +13,12 @@ __global__ void add_bias_kernel(const float* x, const float* b, float* out, int 
     out[idx] = x[idx] + b[j];
 }
 
+// out[i] = x[i] * alpha
+__global__ void scale_kernel(const float* x, float* out, float alpha, int n){
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) out[i] = x[i] * alpha;
+}
+
 // out[j] = Σ_i x[i,j]  (one thread per column)
 __global__ void colsum_kernel(const float* x, float* out, int M, int N){
     int j = blockIdx.x * blockDim.x + threadIdx.x;
@@ -32,6 +38,11 @@ void launch_add_bias_device(const float* d_x, const float* d_b, float* d_out, in
 
 void launch_colsum_device(const float* d_x, float* d_out, int M, int N){
     colsum_kernel<<<(N + THREADS - 1) / THREADS, THREADS>>>(d_x, d_out, M, N);
+    CUDA_CHECK_KERNEL();
+}
+
+void launch_scale_device(const float* d_x, float* d_out, float alpha, int n){
+    scale_kernel<<<(n + THREADS - 1) / THREADS, THREADS>>>(d_x, d_out, alpha, n);
     CUDA_CHECK_KERNEL();
 }
 

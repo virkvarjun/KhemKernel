@@ -64,6 +64,12 @@ void launch_softmax(const float* h_x, float* h_out, int M, int N){
     CUDA_CHECK(cudaFree(d_out));
 }
 
+// Device-resident: pointers already on the GPU, no copies.
+void launch_softmax_device(const float* d_x, float* d_out, int M, int N){
+    softmax_kernel<<<M, THREADS>>>(d_x, d_out, M, N);
+    CUDA_CHECK_KERNEL();
+}
+
 #ifdef BUILD_STANDALONE
 int main(){
     const int M = 64, N = 1000;

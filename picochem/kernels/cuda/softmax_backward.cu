@@ -49,6 +49,13 @@ void launch_softmax_backward(const float* h_grad_out, const float* h_probs,
     CUDA_CHECK(cudaFree(d_gi));
 }
 
+// Device-resident: pointers already on the GPU, no copies.
+void launch_softmax_backward_device(const float* d_grad_out, const float* d_probs,
+                                    float* d_grad_in, int M, int N){
+    softmax_backward_kernel<<<M, THREADS>>>(d_grad_out, d_probs, d_grad_in, M, N);
+    CUDA_CHECK_KERNEL();
+}
+
 #ifdef BUILD_STANDALONE
 int main(){
     const int M = 32, N = 100;

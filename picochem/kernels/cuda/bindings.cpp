@@ -173,6 +173,33 @@ DeviceTensor* dt_bmm(const DeviceTensor& A, const DeviceTensor& B,
     return C;
 }
 
+// Row-wise softmax over the last axis (any leading dims). Resident.
+DeviceTensor* dt_softmax(const DeviceTensor& x){
+    if (x.shape.empty()) throw std::runtime_error("dt_softmax: need >=1-D");
+    int N = static_cast<int>(x.shape.back());
+    int M = static_cast<int>(x.n) / N;
+    auto* out = new DeviceTensor(x.shape);
+    launch_softmax_device(x.d, out->d, M, N);
+    return out;
+}
+
+// Pure-softmax backward over the last axis. Resident.
+DeviceTensor* dt_softmax_backward(const DeviceTensor& grad_out, const DeviceTensor& probs){
+    if (grad_out.n != probs.n) throw std::runtime_error("dt_softmax_backward: size mismatch");
+    int N = static_cast<int>(probs.shape.back());
+    int M = static_cast<int>(probs.n) / N;
+    auto* out = new DeviceTensor(probs.shape);
+    launch_softmax_backward_device(grad_out.d, probs.d, out->d, M, N);
+    return out;
+}
+
+// Scalar multiply: x * alpha (the 1/sqrt(Dh) attention scale). Resident.
+DeviceTensor* dt_scale(const DeviceTensor& x, float alpha){
+    auto* out = new DeviceTensor(x.shape);
+    launch_scale_device(x.d, out->d, alpha, static_cast<int>(x.n));
+    return out;
+}
+
 static void require_ndim(const f32arr& a, int ndim, const char* name){
     if (static_cast<int>(a.ndim()) != ndim)
         throw std::runtime_error(
@@ -421,6 +448,12 @@ PYBIND11_MODULE(picochem_cuda, m){
     m.def("dt_bmm", &dt_bmm, py::return_value_policy::take_ownership,
           py::arg("A"), py::arg("B"), py::arg("transA") = false, py::arg("transB") = false,
           "Device-resident batched matmul with optional per-operand transpose");
+    m.def("dt_softmax", &dt_softmax, py::return_value_policy::take_ownership,
+          "Device-resident row-wise softmax over the last axis");
+    m.def("dt_softmax_backward", &dt_softmax_backward, py::return_value_policy::take_ownership,
+          "Device-resident pure-softmax backward over the last axis");
+    m.def("dt_scale", &dt_scale, py::return_value_policy::take_ownership,
+          py::arg("x"), py::arg("alpha"), "Device-resident scalar multiply x*alpha");
 
     m.def("vector_add",   &py_vector_add,   "Element-wise float32 vector addition");
     m.def("matmul_naive", &py_matmul_naive, "Naive CUDA matmul (float32, 2-D inputs)");

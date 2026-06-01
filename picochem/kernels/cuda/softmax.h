@@ -2,3 +2,4 @@
 
 // Row-wise softmax over an (M, N) matrix.
 void launch_softmax(const float* h_x, float* h_out, int M, int N);
+void launch_softmax_device(const float* d_x, float* d_out, int M, int N);
