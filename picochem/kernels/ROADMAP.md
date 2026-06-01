@@ -53,14 +53,28 @@ a tiny model within ~1e-3 (fp32).
 
 ## Phase 2 — Device-resident tensors (speed)
 
-- Introduce a `DeviceTensor` handle (GPU pointer + shape + dtype) exposed to Python.
-- Replace per-op `cudaMalloc`/`memcpy`/`free` with persistent device buffers;
-  copy only batch inputs in and loss/metrics out.
-- Route attention's `np.matmul` (Q·Kᵀ, weights·V) and the tied output projection
-  through the backend so they stop falling back to CPU.
+`DeviceTensor` (a GPU buffer exposed to Python: upload on construct, `.numpy()`
+to download, `.shape`) plus a `dt_*` op set that keeps data resident across ops
+— no per-op host↔device copies. All verified on RTX PRO 4000 Blackwell.
+
+| Increment | What | Status |
+|---|---|---|
+| inc 1  | `linear_backward` → CUDA matmul kernels in the real model | ✅ verified (0.92×, copy-bound) |
+| inc 2a | `DeviceTensor` + `dt_matmul` (device-resident) | ✅ verified — 17–22× vs copy-every-call |
+| inc 2b | `dt_matmul_dA/dB`, `dt_gelu` fwd/bwd, `dt_add` | ✅ verified |
+| inc 2c | `dt_add_bias`, `dt_colsum` → device-resident **FFN** fwd+bwd | ✅ verified — **32.6×** vs numpy |
+| inc 2d | batched matmul `dt_bmm` (transA/transB) for attention | ✅ verified (nn/nt/tn) |
+| inc 2e | `dt_softmax` fwd/bwd, `dt_scale` → device-resident **SDPA** fwd+bwd | ✅ verified — ~2.5e-7 vs numpy |
+
+Remaining for a full resident `train_step`:
+- device `layer_norm` fwd + backward launchers (`dt_layer_norm` / `_backward`).
+- device-resident embedding **gather** (forward) + `dt_cross_entropy` + `dt_adam`
+  (DeviceTensor wrappers over the existing kernels).
+- assemble a resident encoder/decoder block (LN + SDPA + FFN + residual via
+  `dt_add`), then the full model fwd+bwd keeping all caches on-device.
 
 ## Phase 3 — Wire & validate training
 
-- `train_step` runs end-to-end on device.
-- Finite-difference gradient-check the device path vs NumPy on a tiny config.
+- `train_step` runs end-to-end on device (only batch in, loss/metrics out).
+- Gradient-check the device path vs NumPy on a tiny config.
 - Benchmark steps/sec vs the NumPy baseline; populate `scripts/benchmark_kernels.py`.
