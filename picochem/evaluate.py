@@ -23,7 +23,7 @@ try:
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                result = _py2opsin.name2smiles(name)
+                result = _py2opsin.py2opsin(name)
             return result if result and result.strip() else None
         except Exception:
             return None
