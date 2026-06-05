@@ -27,6 +27,8 @@ def main():
     parser.add_argument("--data",         default="data/traces.parquet")
     parser.add_argument("--smiles_vocab", default="data/smiles_vocab.json")
     parser.add_argument("--iupac_vocab",  default="data/iupac_vocab.json")
+    parser.add_argument("--iupac_bpe",    default=None,
+                        help="BPE tokenizer json (scripts/build_bpe.py); overrides --iupac_vocab")
     parser.add_argument("--n_samples",    type=int, default=500)
     parser.add_argument("--seed",         type=int, default=42,
                         help="Seed for reproducible test-set selection.")
@@ -47,11 +49,17 @@ def main():
     print(f"  Step: {step}")
 
     smiles_vocab, smiles_itos = load_vocab(args.smiles_vocab)
-    iupac_vocab,  iupac_itos  = load_vocab(args.iupac_vocab)
+    if args.iupac_bpe:
+        from picochem.bpe import BPETokenizer
+        iupac_tok = BPETokenizer.load(args.iupac_bpe)
+        iupac_vocab, iupac_itos = iupac_tok.vocab, iupac_tok.itos
+    else:
+        iupac_tok = None
+        iupac_vocab, iupac_itos = load_vocab(args.iupac_vocab)
 
     print(f"Loading dataset: {args.data}")
     all_pairs = load_dataset(
-        args.data, smiles_vocab, iupac_vocab,
+        args.data, smiles_vocab, iupac_tok or iupac_vocab,
         config["max_src_len"], config["max_tgt_len"],
     )
     # Use the val split (same seed → same split as training)

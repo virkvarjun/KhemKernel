@@ -50,7 +50,14 @@ for _jdk in ("/opt/homebrew/opt/openjdk/bin", "/usr/local/opt/openjdk/bin"):
 print(f"Loading checkpoint: {CHECKPOINT}")
 PARAMS, _, STEP, CONFIG = load_checkpoint(CHECKPOINT)
 SMILES_STOI, SMILES_ITOS = load_vocab(SMILES_VOCAB)
-IUPAC_STOI, IUPAC_ITOS = load_vocab(IUPAC_VOCAB)
+_BPE_PATH = os.environ.get("PICOCHEM_IUPAC_BPE")
+if _BPE_PATH:
+    from picochem.bpe import BPETokenizer
+    _bpe = BPETokenizer.load(_BPE_PATH)
+    IUPAC_STOI, IUPAC_ITOS = _bpe.vocab, _bpe.itos  # itos joins losslessly in decode_iupac
+    print(f"IUPAC tokenizer: BPE ({len(IUPAC_STOI)} tokens) from {_BPE_PATH}")
+else:
+    IUPAC_STOI, IUPAC_ITOS = load_vocab(IUPAC_VOCAB)
 START_ID = IUPAC_STOI["<start>"]
 END_ID = IUPAC_STOI["<end>"]
 PAD_ID = IUPAC_STOI["<pad>"]
