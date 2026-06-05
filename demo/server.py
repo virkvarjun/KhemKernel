@@ -31,8 +31,8 @@ import numpy as np
 
 from picochem.checkpointing import load_checkpoint
 from picochem.data import load_vocab, encode_smiles, decode_iupac
-from picochem.model import greedy_decode
-from picochem.evaluate import parse_trace
+from picochem.model import greedy_decode, beam_decode
+from picochem.evaluate import parse_trace, name_to_smiles, _canonicalize
 
 CHECKPOINT = os.environ.get("PICOCHEM_CKPT", os.path.join(ROOT, "runs/device_full/ckpt_latest.npz"))
 SMILES_VOCAB = os.path.join(ROOT, "data/smiles_vocab.json")
@@ -65,8 +65,18 @@ except Exception:
     OPSIN_OK = False
 
 
+BEAM_WIDTH = int(os.environ.get("PICOCHEM_BEAM", "5"))
+
+
 def smiles_to_iupac(smiles):
-    """Run the trained model on a SMILES string -> (name, full_trace)."""
+    """Run the trained model on a SMILES string.
+
+    Returns a dict: {name, trace, verified, opsin_smiles, decode}.
+
+    When OPSIN is available we beam-decode and rerank: among the candidates we
+    prefer the one whose name round-trips through OPSIN back to the *input*
+    molecule ("verified"). Without OPSIN we fall back to plain greedy decode.
+    """
     smiles = (smiles or "").strip()
     if not smiles:
         raise ValueError("empty SMILES")
@@ -77,14 +87,36 @@ def smiles_to_iupac(smiles):
         raise ValueError(f"SMILES too long ({len(src_ids)} > {CONFIG['max_src_len']} tokens)")
     src = src_ids[np.newaxis, :]
     src_mask = np.ones((1, len(src_ids)), dtype=np.float64)
-    gen_ids = greedy_decode(
+
+    if not OPSIN_OK:
+        gen_ids = greedy_decode(
+            src, src_mask, PARAMS, CONFIG,
+            start_token=START_ID, end_token=END_ID, pad_token=PAD_ID,
+            max_length=CONFIG["max_tgt_len"],
+        )
+        trace = decode_iupac(np.array(gen_ids), IUPAC_ITOS)
+        return {"name": parse_trace(trace), "trace": trace,
+                "verified": False, "opsin_smiles": None, "decode": "greedy"}
+
+    target = _canonicalize(smiles)
+    beams = beam_decode(
         src, src_mask, PARAMS, CONFIG,
         start_token=START_ID, end_token=END_ID, pad_token=PAD_ID,
-        max_length=CONFIG["max_tgt_len"],
+        max_length=CONFIG["max_tgt_len"], beam_width=BEAM_WIDTH,
     )
-    trace = decode_iupac(np.array(gen_ids), IUPAC_ITOS)
-    name = parse_trace(trace)
-    return name, trace
+    cands = []
+    for toks, _ in beams:
+        text = decode_iupac(np.array(toks), IUPAC_ITOS)
+        nm = parse_trace(text)
+        sm = _canonicalize(name_to_smiles(nm)) if nm else None
+        cands.append({"name": nm, "trace": text, "opsin_smiles": sm})
+
+    verified = next((c for c in cands if c["opsin_smiles"] and c["opsin_smiles"] == target), None)
+    parseable = next((c for c in cands if c["opsin_smiles"]), None)
+    chosen = verified or parseable or cands[0]
+    return {"name": chosen["name"], "trace": chosen["trace"],
+            "verified": verified is not None,
+            "opsin_smiles": chosen["opsin_smiles"], "decode": f"beam{BEAM_WIDTH}+rerank"}
 
 
 def iupac_to_smiles(name):
@@ -141,8 +173,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = self._read_json()
             if self.path == "/api/smiles2iupac":
-                name, trace = smiles_to_iupac(data.get("smiles"))
-                self._json(200, {"ok": True, "name": name, "trace": trace})
+                res = smiles_to_iupac(data.get("smiles"))
+                self._json(200, {"ok": True, **res})
             elif self.path == "/api/iupac2smiles":
                 smi = iupac_to_smiles(data.get("name"))
                 self._json(200, {"ok": True, "smiles": smi})

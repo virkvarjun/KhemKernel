@@ -60,6 +60,8 @@
   .answer { font-size: 20px; font-weight: 650; word-break: break-word; }
   .answer.mono { font: 16px/1.5 var(--mono); font-weight: 600; }
   .answer .none { color: var(--warn); font-size: 15px; font-weight: 500; }
+  .verified { margin-top: 8px; color: var(--accent-2); font-size: 12.5px; font-weight: 600; }
+  .unverified { margin-top: 8px; color: var(--warn); font-size: 12.5px; }
   .fields { margin-top: 10px; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font: 12.5px/1.5 var(--mono); }
   .fields .k { color: var(--muted); }
   .fields .v { color: var(--ink); word-break: break-word; }
@@ -150,6 +152,11 @@ async function nameMolecule() {
     if (!d.ok) { out.innerHTML = '<span class="err">'+esc(d.error)+'</span>'; return; }
     const name = d.name;
     let html = '<div class="answer">' + (name ? esc(name) : '<span class="none">no name produced (malformed trace)</span>') + '</div>';
+    if (d.verified) {
+      html += '<div class="verified">✓ verified — this name round-trips back to your molecule via OPSIN</div>';
+    } else if (d.decode && d.decode.indexOf('rerank') >= 0 && name) {
+      html += '<div class="unverified">⚠ best guess — no candidate round-tripped to your molecule</div>';
+    }
     const parent = field(d.trace, "parent"), groups = field(d.trace, "groups");
     const atoms = field(d.trace, "atoms"), rings = field(d.trace, "rings");
     html += '<div class="fields">';
