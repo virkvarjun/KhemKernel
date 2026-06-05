@@ -60,6 +60,8 @@ def main():
     parser.add_argument("--data",         default="data/raw_pairs.parquet")
     parser.add_argument("--smiles_vocab", default="data/smiles_vocab.json")
     parser.add_argument("--iupac_vocab",  default="data/iupac_vocab.json")
+    parser.add_argument("--iupac_bpe",    default=None,
+                        help="BPE tokenizer json (scripts/build_bpe.py); overrides --iupac_vocab")
 
     # Model
     parser.add_argument("--d_model",      type=int,   default=256)
@@ -124,7 +126,14 @@ def main():
 
     # ── Vocabs ────────────────────────────────────────────────────────────
     smiles_vocab, smiles_itos = load_vocab(args.smiles_vocab)
-    iupac_vocab,  iupac_itos  = load_vocab(args.iupac_vocab)
+    if args.iupac_bpe:
+        from picochem.bpe import BPETokenizer
+        iupac_tok = BPETokenizer.load(args.iupac_bpe)
+        iupac_vocab, iupac_itos = iupac_tok.vocab, iupac_tok.itos
+        print(f"IUPAC tokenizer: BPE ({len(iupac_vocab)} tokens) from {args.iupac_bpe}")
+    else:
+        iupac_tok = None
+        iupac_vocab, iupac_itos = load_vocab(args.iupac_vocab)
 
     src_pad = smiles_vocab["<pad>"]
     tgt_pad = iupac_vocab["<pad>"]
@@ -132,7 +141,7 @@ def main():
     # ── Dataset ───────────────────────────────────────────────────────────
     print(f"Loading data from {args.data} ...")
     all_pairs = load_dataset(
-        args.data, smiles_vocab, iupac_vocab,
+        args.data, smiles_vocab, iupac_tok or iupac_vocab,
         args.max_src_len, args.max_tgt_len,
     )
     train_pairs, val_pairs = split_dataset(all_pairs, val_fraction=args.val_fraction)

@@ -54,7 +54,14 @@ def main():
     ap.add_argument("--max_tgt_len", type=int, default=64)
     ap.add_argument("--total_steps", type=int, default=200)
     ap.add_argument("--batch_size", type=int, default=16)
-    ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument("--lr", type=float, default=3e-4, help="peak learning rate")
+    ap.add_argument("--schedule", choices=["flat", "cosine", "linear"], default="flat",
+                    help="LR schedule (flat reproduces the original behaviour)")
+    ap.add_argument("--warmup_steps", type=int, default=1000)
+    ap.add_argument("--min_lr", type=float, default=1e-5)
+    ap.add_argument("--iupac_bpe", default=None,
+                    help="path to a BPE tokenizer json (scripts/build_bpe.py); "
+                         "overrides --iupac_vocab when set")
     ap.add_argument("--log_every", type=int, default=10)
     ap.add_argument("--checkpoint_every", type=int, default=1000,
                     help="save a numpy checkpoint every N steps (0 disables)")
@@ -88,9 +95,18 @@ def main():
         from picochem.data import load_vocab
         from picochem.data_loader import load_dataset, split_dataset, make_batch
         sv, _ = load_vocab(args.smiles_vocab)
-        iv, _ = load_vocab(args.iupac_vocab)
-        src_vocab, tgt_vocab = len(sv), len(iv)
-        src_pad, tgt_pad = sv["<pad>"], iv["<pad>"]
+        if args.iupac_bpe:
+            from picochem.bpe import BPETokenizer
+            iv = BPETokenizer.load(args.iupac_bpe)
+            tgt_vocab = len(iv.vocab)
+            tgt_pad = iv.vocab["<pad>"]
+            print(f"IUPAC tokenizer: BPE ({tgt_vocab} tokens) from {args.iupac_bpe}")
+        else:
+            iv, _ = load_vocab(args.iupac_vocab)
+            tgt_vocab = len(iv)
+            tgt_pad = iv["<pad>"]
+        src_vocab = len(sv)
+        src_pad = sv["<pad>"]
         pairs = load_dataset(args.data, sv, iv, args.max_src_len, args.max_tgt_len)
         train_pairs, _ = split_dataset(pairs)
         print(f"train pairs: {len(train_pairs):,}")
@@ -119,15 +135,24 @@ def main():
     emb = {k: p[k].copy() for k in ('src_token_embed', 'tgt_token_embed', 'src_pos_embed', 'tgt_pos_embed')}
     emb_state = init_adam_state(emb)
 
-    def adam_stack(g, step):
+    def lr_at(step):
+        if args.schedule == "flat":
+            return args.lr
+        from picochem.scheduler import (linear_warmup_cosine_decay,
+                                        linear_warmup_linear_decay)
+        fn = (linear_warmup_cosine_decay if args.schedule == "cosine"
+              else linear_warmup_linear_decay)
+        return fn(step, args.warmup_steps, args.total_steps, args.lr, args.min_lr)
+
+    def adam_stack(g, step, lr):
         for name, blocks in (('encoder_blocks', enc), ('decoder_blocks', dec)):
             mb = mstate['enc'] if name == 'encoder_blocks' else mstate['dec']
             vb = vstate['enc'] if name == 'encoder_blocks' else vstate['dec']
             for i, blk in enumerate(blocks):
                 for k in blk:
-                    pc.dt_adam(blk[k], g[name][i][k], mb[i][k], vb[i][k], step, args.lr, b1, b2, eps)
-        pc.dt_adam(fg, g['final_ln_gamma'], mstate['fg'], vstate['fg'], step, args.lr, b1, b2, eps)
-        pc.dt_adam(fb, g['final_ln_beta'], mstate['fb'], vstate['fb'], step, args.lr, b1, b2, eps)
+                    pc.dt_adam(blk[k], g[name][i][k], mb[i][k], vb[i][k], step, lr, b1, b2, eps)
+        pc.dt_adam(fg, g['final_ln_gamma'], mstate['fg'], vstate['fg'], step, lr, b1, b2, eps)
+        pc.dt_adam(fb, g['final_ln_beta'], mstate['fb'], vstate['fb'], step, lr, b1, b2, eps)
 
     def snapshot_and_save(step):
         """Download resident params + host embeddings into a numpy params dict
@@ -164,7 +189,8 @@ def main():
         grad_logits = pc.dt_cross_entropy_backward(logits, tout.reshape(-1).astype(np.int32), -1, n_valid, 1.0)
         g = dl.model_backward(grad_logits, cache)
 
-        adam_stack(g, step)
+        lr = lr_at(step)
+        adam_stack(g, step, lr)
 
         # embedding tables: scatter grads on host, then NumPy Adam
         gse = g['grad_src_emb'].numpy(); gte = g['grad_tgt_emb'].numpy()
@@ -174,11 +200,11 @@ def main():
         g_emb['tgt_token_embed'] += g['grad_tgt_embed_proj'].numpy()
         g_emb['src_pos_embed'][:S] = gse.sum(0)
         g_emb['tgt_pos_embed'][:T] = gte.sum(0)
-        adam_step(emb, g_emb, emb_state, step, lr=args.lr, beta1=b1, beta2=b2, eps=eps)
+        adam_step(emb, g_emb, emb_state, step, lr=lr, beta1=b1, beta2=b2, eps=eps)
 
         if step % args.log_every == 0 or step == 1:
             dt_ms = (time.perf_counter() - t0) / step * 1000
-            print(f"step {step:5d}  loss {float(loss):.4f}  ({dt_ms:.1f} ms/step)", flush=True)
+            print(f"step {step:5d}  loss {float(loss):.4f}  lr {lr:.2e}  ({dt_ms:.1f} ms/step)", flush=True)
 
         if args.checkpoint_every and step % args.checkpoint_every == 0:
             snapshot_and_save(step)
