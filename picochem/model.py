@@ -279,3 +279,56 @@ def sample_decode(src_ids, src_mask, params, config,
             break
 
     return output
+
+
+def beam_decode(src_ids, src_mask, params, config,
+                start_token, end_token, pad_token,
+                max_length=200, beam_width=5, n_return=None,
+                length_penalty=0.6):
+    """Beam search decode.
+
+    Returns the top ``n_return`` hypotheses as a list of
+    ``(token_list, normalized_score)`` ranked best-first. The token lists
+    include the leading ``start_token`` (matching ``greedy_decode``), and a
+    trailing ``end_token`` when the beam finished.
+
+    ``length_penalty`` follows the GNMT convention: a hypothesis's score is
+    ``sum(log p) / len**length_penalty`` — higher penalty favours longer
+    sequences (0 = pure log-prob, ~0.6-0.7 typical for seq2seq).
+    """
+    if n_return is None:
+        n_return = beam_width
+
+    def _norm(tokens, logprob):
+        return logprob / (len(tokens) ** length_penalty)
+
+    # Each beam: [tokens, sum_logprob, finished]
+    beams = [[[start_token], 0.0, False]]
+
+    for _ in range(max_length - 1):
+        if all(b[2] for b in beams):
+            break
+        candidates = []
+        for tokens, logprob, finished in beams:
+            if finished:
+                candidates.append([tokens, logprob, True])
+                continue
+            tgt_ids = np.array([tokens], dtype=np.int32)
+            tgt_mask = np.ones_like(tgt_ids, dtype=np.float64)
+            logits, _ = model_forward(src_ids, tgt_ids, src_mask, tgt_mask, params, config)
+            next_logits = logits[0, -1]
+            # log-softmax (numerically stable)
+            shifted = next_logits - next_logits.max()
+            logp = shifted - np.log(np.exp(shifted).sum())
+            # expand only the top beam_width next tokens
+            topk = np.argpartition(logp, -beam_width)[-beam_width:]
+            for tok in topk:
+                tok = int(tok)
+                candidates.append([tokens + [tok], logprob + float(logp[tok]),
+                                   tok == end_token])
+        # keep the best beam_width by length-normalized score
+        candidates.sort(key=lambda b: _norm(b[0], b[1]), reverse=True)
+        beams = candidates[:beam_width]
+
+    ranked = sorted(beams, key=lambda b: _norm(b[0], b[1]), reverse=True)
+    return [(tokens, _norm(tokens, logprob)) for tokens, logprob, _ in ranked[:n_return]]
