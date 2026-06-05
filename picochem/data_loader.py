@@ -38,10 +38,17 @@ def load_dataset(parquet_path, smiles_vocab, iupac_vocab, max_src_len, max_tgt_l
             f"got {list(df.columns)}"
         )
 
+    # iupac_vocab may be a legacy {token: id} dict or a BPETokenizer (which
+    # exposes an .encode method). Both produce <start>…<end>-wrapped id arrays.
+    bpe = None if isinstance(iupac_vocab, dict) else getattr(iupac_vocab, "encode", None)
+
     pairs = []
     for _, row in df.iterrows():
         src_ids = encode_smiles(str(row[src_col]), smiles_vocab)
-        tgt_ids = encode_iupac(str(row[tgt_col]), iupac_vocab)
+        if bpe is not None:
+            tgt_ids = np.array(bpe(str(row[tgt_col])), dtype=np.int32)
+        else:
+            tgt_ids = encode_iupac(str(row[tgt_col]), iupac_vocab)
         if len(src_ids) > max_src_len or len(tgt_ids) > max_tgt_len:
             continue
         pairs.append((src_ids, tgt_ids))
