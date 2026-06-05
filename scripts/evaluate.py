@@ -32,6 +32,14 @@ def main():
                         help="Seed for reproducible test-set selection.")
     parser.add_argument("--output",       default=None,
                         help="Path to save results JSON.")
+    parser.add_argument("--decode",       default="greedy", choices=["greedy", "beam"],
+                        help="Decoding strategy.")
+    parser.add_argument("--beam_width",   type=int, default=5,
+                        help="Beam width when --decode beam.")
+    parser.add_argument("--rerank",       action="store_true",
+                        help="OPSIN-verifier reranking: decode a beam and keep the "
+                             "candidate whose name round-trips to the input molecule "
+                             "(implies --decode beam).")
     args = parser.parse_args()
 
     print(f"Loading checkpoint: {args.checkpoint}")
@@ -54,13 +62,20 @@ def main():
     idx = rng.choice(len(val_pairs), size=n, replace=False)
     test_pairs = [val_pairs[i] for i in idx]
 
-    print(f"Evaluating {n} examples  (OPSIN backend: {_OPSIN_BACKEND})\n")
+    use_beam = args.decode == "beam" or args.rerank
+    mode = f"beam (width {args.beam_width})" if use_beam else "greedy"
+    if args.rerank:
+        mode += " + OPSIN rerank"
+    print(f"Evaluating {n} examples  (decode: {mode}; OPSIN backend: {_OPSIN_BACKEND})\n")
 
     results = evaluate_model(
         params, config, test_pairs,
         smiles_itos, iupac_itos,
         n_samples=n,
         max_length=config["max_tgt_len"],
+        decode=args.decode,
+        beam_width=args.beam_width,
+        rerank=args.rerank,
     )
 
     N = results["n_evaluated"]
