@@ -65,6 +65,8 @@ def main():
     ap.add_argument("--log_every", type=int, default=10)
     ap.add_argument("--checkpoint_every", type=int, default=1000,
                     help="save a numpy checkpoint every N steps (0 disables)")
+    ap.add_argument("--keep_every", type=int, default=10000,
+                    help="also keep a numbered ckpt_NNNN.npz every N steps (0 disables)")
     ap.add_argument("--run_dir", default=None, help="checkpoint dir (default runs/device_<ts>)")
     ap.add_argument("--src_vocab", type=int, default=64, help="synthetic only")
     ap.add_argument("--tgt_vocab", type=int, default=80, help="synthetic only")
@@ -154,7 +156,7 @@ def main():
         pc.dt_adam(fg, g['final_ln_gamma'], mstate['fg'], vstate['fg'], step, lr, b1, b2, eps)
         pc.dt_adam(fb, g['final_ln_beta'], mstate['fb'], vstate['fb'], step, lr, b1, b2, eps)
 
-    def snapshot_and_save(step):
+    def snapshot_and_save(step, numbered=False):
         """Download resident params + host embeddings into a numpy params dict
         (matching init_params' structure) and save a checkpoint."""
         np_p = {
@@ -164,13 +166,14 @@ def main():
             'decoder_blocks': [{k: blk[k].numpy() for k in blk} for blk in dec],
             'final_ln_gamma': fg.numpy(), 'final_ln_beta': fb.numpy(),
         }
-        path = os.path.join(args.run_dir, "ckpt_latest.npz")
-        save_checkpoint(path, np_p, {}, step, cfg)
+        name = f"ckpt_{step:07d}.npz" if numbered else "ckpt_latest.npz"
+        save_checkpoint(os.path.join(args.run_dir, name), np_p, {}, step, cfg)
 
     print(f"Device training: {args.total_steps} steps, batch {args.batch_size}, "
           f"d_model {args.d_model}, {args.n_enc_layers}+{args.n_dec_layers} layers, "
           f"vocab {src_vocab}/{tgt_vocab}\n")
     t0 = time.perf_counter()
+    n_skipped = 0
     for step in range(1, args.total_steps + 1):
         src, tin, tout, sm, tm = get_batch()
         B, S = src.shape
@@ -190,27 +193,40 @@ def main():
         g = dl.model_backward(grad_logits, cache)
 
         lr = lr_at(step)
-        adam_stack(g, step, lr)
+        loss_val = float(loss)
 
-        # embedding tables: scatter grads on host, then NumPy Adam
-        gse = g['grad_src_emb'].numpy(); gte = g['grad_tgt_emb'].numpy()
-        g_emb = {k: np.zeros_like(emb[k]) for k in emb}
-        np.add.at(g_emb['src_token_embed'], src, gse)
-        np.add.at(g_emb['tgt_token_embed'], tin, gte)
-        g_emb['tgt_token_embed'] += g['grad_tgt_embed_proj'].numpy()
-        g_emb['src_pos_embed'][:S] = gse.sum(0)
-        g_emb['tgt_pos_embed'][:T] = gte.sum(0)
-        adam_step(emb, g_emb, emb_state, step, lr=lr, beta1=b1, beta2=b2, eps=eps)
+        # Skip the update on a non-finite loss so one bad batch can't poison the
+        # weights (the device trainer has no grad clipping). The next batch uses
+        # the still-good weights and normally recovers.
+        if math.isfinite(loss_val):
+            adam_stack(g, step, lr)
+
+            # embedding tables: scatter grads on host, then NumPy Adam
+            gse = g['grad_src_emb'].numpy(); gte = g['grad_tgt_emb'].numpy()
+            g_emb = {k: np.zeros_like(emb[k]) for k in emb}
+            np.add.at(g_emb['src_token_embed'], src, gse)
+            np.add.at(g_emb['tgt_token_embed'], tin, gte)
+            g_emb['tgt_token_embed'] += g['grad_tgt_embed_proj'].numpy()
+            g_emb['src_pos_embed'][:S] = gse.sum(0)
+            g_emb['tgt_pos_embed'][:T] = gte.sum(0)
+            adam_step(emb, g_emb, emb_state, step, lr=lr, beta1=b1, beta2=b2, eps=eps)
+        else:
+            n_skipped += 1
 
         if step % args.log_every == 0 or step == 1:
             dt_ms = (time.perf_counter() - t0) / step * 1000
-            print(f"step {step:5d}  loss {float(loss):.4f}  lr {lr:.2e}  ({dt_ms:.1f} ms/step)", flush=True)
+            print(f"step {step:5d}  loss {loss_val:.4f}  lr {lr:.2e}  skipped {n_skipped}  "
+                  f"({dt_ms:.1f} ms/step)", flush=True)
 
-        if args.checkpoint_every and step % args.checkpoint_every == 0:
+        # Only checkpoint a finite state, so a NaN never overwrites good weights.
+        if args.checkpoint_every and step % args.checkpoint_every == 0 and math.isfinite(loss_val):
             snapshot_and_save(step)
+            if args.keep_every and step % args.keep_every == 0:
+                snapshot_and_save(step, numbered=True)
             print(f"  checkpoint -> {args.run_dir}/ckpt_latest.npz", flush=True)
 
-    snapshot_and_save(args.total_steps)
+    if math.isfinite(float(loss)):
+        snapshot_and_save(args.total_steps)
     print(f"\nDone. {args.total_steps} steps in {time.perf_counter()-t0:.1f}s  "
           f"(checkpoint in {args.run_dir})")
 
