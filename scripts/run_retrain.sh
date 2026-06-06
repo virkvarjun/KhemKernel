@@ -10,6 +10,10 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+# Put CUDA on PATH so build_cuda's arch auto-detect works (and so a Blackwell
+# sm_120 GPU on an older toolkit falls back to compute_90 PTX automatically).
+export PATH="$(ls -d /usr/local/cuda*/bin 2>/dev/null | head -1):$PATH"
+
 DMODEL=${DMODEL:-512}
 HEADS=${HEADS:-8}
 DFF=${DFF:-2048}
@@ -22,6 +26,7 @@ WARMUP=${WARMUP:-1500}
 MAXTGT=${MAXTGT:-64}
 MAXSRC=${MAXSRC:-100}
 VOCAB=${VOCAB:-4000}
+TRAINLINES=${TRAINLINES:-80000}
 RUNDIR=${RUNDIR:-runs/device_bpe_d${DMODEL}}
 
 echo "=== [deps] datasets + rdkit ==="; date
@@ -36,8 +41,9 @@ echo "=== [1/4] download pairs (skip if present) ==="; date
 echo "=== [2/4] generate traces (skip if present) ==="; date
 [ -f data/traces.parquet ] || python3 scripts/generate_traces.py
 
-echo "=== [3/4] build BPE tokenizer (skip if present) ==="; date
-[ -f data/iupac_bpe.json ] || python3 scripts/build_bpe.py --vocab_size "$VOCAB"
+echo "=== [3/4] build vocab: SMILES (build_vocab) + IUPAC BPE (skip if present) ==="; date
+[ -f data/smiles_vocab.json ] || python3 scripts/build_vocab.py
+[ -f data/iupac_bpe.json ] || python3 scripts/build_bpe.py --vocab_size "$VOCAB" --train_lines "$TRAINLINES"
 
 echo "=== [smoke] tiny synthetic step to confirm kernels handle d_model=$DMODEL ==="; date
 PYTHONPATH=picochem/kernels python3 scripts/train_device.py --synthetic \
