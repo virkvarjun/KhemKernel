@@ -1,184 +1,156 @@
-# picochem
+# ChemKernel
 
-A chemistry reasoning model with explanation traces, built from scratch in NumPy — then accelerated with hand-written GPU kernels. Translates between SMILES molecular structure strings and IUPAC chemical names, producing structured reasoning traces that explain each step. Includes interpretability experiments (linear probing, attention faithfulness) and a GPU acceleration phase progressing from Numba through Triton to raw CUDA.
+A chemistry translation model built from the ground up. It reads a molecule written as a SMILES string and writes back its IUPAC name, along with a short reasoning trace that names the parent scaffold, the functional groups, and the atom and ring counts it used to get there. The transformer, its gradients, the optimizer, and the GPU kernels underneath are all hand written. The Python package is called `picochem`; the repository and the demo carry the ChemKernel name.
 
-## Three pillars
+The current model gets the exact molecule right **95.8% of the time** on held out data when it is allowed to propose several candidates and check them against a parser. On a single greedy pass it is at **79.5%**. The whole thing trains on one GPU in about half a day and runs inference on a laptop CPU.
 
-1. **Reasoning traces** — structured chemistry explanations generated from (SMILES, IUPAC) pairs via RDKit, used as the model's training target
-2. **Interpretability** — linear probing on encoder activations, attention-faithfulness experiments, and failure taxonomy
-3. **GPU kernels** — NumPy CPU baseline → Numba CUDA → Triton → raw CUDA C++, benchmarked throughout
+## What it does
 
-## Setup
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
-```
-
-`rdkit` installed via `pip install rdkit` (tested with rdkit==2026.3.1 on macOS arm64). GPU dependencies are listed but commented out in `requirements.txt` — install when entering the kernel phase.
-
-### Quickstart (fresh box / RunPod)
-
-On a clean pod with Python ≥ 3.10, the full pipeline from setup to a running
-job is:
-
-```bash
-bash scripts/setup_env.sh          # venv + deps + editable install
-source .venv/bin/activate
-python scripts/download_data.py    # data/raw_pairs.parquet  (streams from HF)
-python scripts/build_vocab.py      # data/smiles_vocab.json, data/iupac_vocab.json
-python scripts/generate_traces.py  # data/traces.parquet     (training targets)
-python scripts/train.py --data data/traces.parquet \
-    --d_model 256 --n_heads 4 --d_ff 1024 \
-    --n_enc_layers 3 --n_dec_layers 3 \
-    --total_steps 100000 --batch_size 32 --peak_lr 3e-4 --warmup_steps 2000
-```
-
-Training is pure NumPy (CPU); pick a high-core-count pod rather than a GPU one
-until the CUDA kernel phase. Run inside `tmux`/`nohup` so the job survives SSH
-drops, and resume after a restart with `python scripts/resume_training.py`.
-
-## Data
-
-Download and filter 1M SMILES↔IUPAC pairs from PubChem (streams from HuggingFace, no full download):
-
-```bash
-python scripts/download_data.py
-```
+Input a SMILES string, get back the systematic name plus the trace that produced it.
 
 ```
-Streamed 1,400,000 | Kept: 939,862
-Final: 1,000,000 pairs saved to data/raw_pairs.parquet
-Disk size: 54.2 MB
+c1ccc(O)cc1                  ->  phenol
+CC(N)C(=O)O                  ->  2-aminopropanoic acid
+CC(=O)Oc1ccccc1C(=O)O        ->  2-acetyloxybenzoic acid      (aspirin)
+CC(C)Cc1ccc(C(C)C(=O)O)cc1   ->  2-[4-(2-methylpropyl)phenyl]propanoic acid   (ibuprofen)
 ```
 
-~1.4M rows streamed to collect 1M after filtering (no mixtures, SMILES ≤ 100 chars, IUPAC ≤ 100 chars).
-
-## Tokenizers
-
-```bash
-python scripts/build_vocab.py
-```
+A full trace looks like this:
 
 ```
-SMILES vocab size: 341
-IUPAC vocab size: 11891
-Vocabularies saved to data/smiles_vocab.json and data/iupac_vocab.json
+<parent>benzene</parent><groups>phenol</groups><atoms>7</atoms><rings>1</rings><name>phenol</name>
 ```
 
-SMILES uses the Schwaller et al. regex tokenizer (handles multi-char atoms like `[C@@H]`, `Cl`, `Br`). IUPAC is split on word boundaries, digits, and punctuation. Rare IUPAC tokens (< 5 occurrences) map to `<unk>`.
+The `<name>` field is the answer. The other fields are intermediate reasoning the model is trained to produce before it commits to a name, which also gives a window into how it is thinking.
 
-## Reasoning traces
+## Results
 
-Convert `raw_pairs.parquet` into the reasoning-trace targets the model is
-trained on (parent scaffold, functional groups, atom/ring counts, name):
+Every number below is exact structure match on 2,000 held out molecules: the generated name is parsed back to a molecule by OPSIN, canonicalized by RDKit, and compared to the input. Same evaluation seeds throughout, so the columns are directly comparable.
 
-```bash
-python scripts/generate_traces.py
-```
-
-```
-Building traces: 100%|██████████| 1,000,000/1,000,000
-Generated traces: 1,000,000
-Saved to data/traces.parquet
-```
-
-Each trace looks like
-`<parent>benzene</parent><groups>none</groups><atoms>6</atoms><rings>1</rings><name>benzene</name>`.
-Training and evaluation both consume `data/traces.parquet`; the `<name>` tag is
-what OPSIN parses back to SMILES during eval. **Train on the traces file, not
-`raw_pairs.parquet`** — the raw names have no trace tags, so trace-validity
-would be 0%.
-
-## How to run
-
-### Fresh training run
-
-```bash
-python scripts/train.py \
-    --data data/traces.parquet \
-    --d_model 256 --n_heads 4 --d_ff 1024 \
-    --n_enc_layers 3 --n_dec_layers 3 \
-    --total_steps 100000 --batch_size 32 \
-    --peak_lr 3e-4 --warmup_steps 2000 --schedule cosine \
-    --checkpoint_every 500 --val_every 500 --eval_every 5000
-```
-
-Each run creates a timestamped directory under `runs/`, containing:
-- `ckpt_latest.npz` — overwritten every `--checkpoint_every` steps; use this to resume after a crash
-- `ckpt_best.npz` — saved whenever validation loss improves
-- `ckpt_NNNNNNN.npz` — milestone snapshots every `--keep_checkpoint_every` steps (default 5000)
-- `log.jsonl` — one JSON line per logged step (train loss, val loss, LR, OPSIN eval)
-- `loss_curve.png` / `training_progress.png` — 2-panel training plot (loss + structure match rate)
-
-> **Expected timeline:** On CPU (NumPy), expect ~2–5 seconds per step with batch size 32 and `d_model=256`. A full 100k-step run takes roughly 60–120 hours. Checkpoint 11 onwards moves to GPU, which will reduce this by ~100×.
-
-### Resume after a crash
-
-```bash
-python scripts/resume_training.py
-```
-
-Automatically finds the most recently modified run in `runs/`, reads its `run_args.json`, and re-launches `scripts/train.py` with `--resume_from` pointing at `ckpt_latest.npz`. Additional arguments appended on the command line override saved args:
-
-```bash
-python scripts/resume_training.py --total_steps 200000
-```
-
-### Evaluate a checkpoint
-
-```bash
-python scripts/evaluate.py \
-    --checkpoint runs/run_<timestamp>/ckpt_best.npz \
-    --n_samples 500
-```
-
-Prints:
-
-```
-─────────────────────────────────────────────
-  Step:              12500
-  N evaluated:       500
-  Trace validity:     83.4%  (417 / 500)
-  OPSIN parse:        61.2%  (306 / 500)
-  Structure match:    38.8%  (194 / 500)
-─────────────────────────────────────────────
-```
-
-Requires Java 8+ for OPSIN. Install with `pip install py2opsin` then ensure `java` is on `$PATH`. Without Java, only trace validity rate is reported.
-
-### Sample generated traces
-
-```bash
-python scripts/sample_during_training.py \
-    --checkpoint runs/run_<timestamp>/ckpt_best.npz
-```
-
-Decodes 5 fixed SMILES strings and prints the generated reasoning traces to stdout.
-
----
-
-## Ops (`picochem/ops.py`)
-
-All forward and backward passes are implemented from scratch in NumPy. Each op returns a cache for the backward pass; gradients are verified against finite differences via pytest.
-
-| Op | Forward | Backward |
+| Decoding | First model | Final model |
 |---|---|---|
-| Linear | `y = xW + b` | gradients w.r.t. `x`, `W`, `b` |
-| GeLU | tanh approximation (Hendrycks & Gimpel) | analytic derivative via chain rule |
-| Softmax + cross-entropy | numerically stable log-softmax; masks `<pad>` tokens via `ignore_index` | gradient w.r.t. logits only; integer targets have no gradient |
-| Layer norm | normalizes over last axis; learnable `γ`, `β` | full Bessel-corrected backward; reduces `grad_γ`, `grad_β` over batch dims |
+| Greedy (one pass) | 67.1% | 79.5% |
+| Beam search plus verifier rerank | 81.0% | 89.6% |
+| Wide beam (20) plus verifier rerank | n/a | 95.8% |
+| Valid IUPAC name rate | 85.6% | 97.9% |
 
-## Attention (`picochem/attention.py`)
+The jump from the first model to the final one came from two changes covered below: a byte pair tokenizer for names, and a wider model trained with a learning rate schedule. The jump from greedy to verifier rerank is a free inference time trick that works because we can check our own answers.
 
-Three attention primitives, all gradient-checked against finite differences.
+## Run the demo
 
-| Function | Description |
-|---|---|
-| `scaled_dot_product_attention_forward/backward` | Core `QKᵀ/√Dh` attention; supports additive mask (causal or padding) |
-| `multihead_self_attention_forward/backward` | Full MHA: Q/K/V projections → split heads → SDPA → concat → output projection; Q, K, V all come from the same input `x` |
-| `multihead_cross_attention_forward/backward` | Cross-attention: Q from decoder `x_dec`, K/V from encoder `x_enc`; gradients flow back to both sequences independently |
+The demo is a single page with two boxes. One takes a SMILES string and runs the model. The other takes an IUPAC name and runs OPSIN in reverse, so you can sanity check either direction.
 
-All three ops use the same shape convention: `(B, H, S, Dh)` inside the attention kernel, with head-split and head-merge transposes handled in the multihead wrappers. Caches store only what is needed for the backward pass (no redundant copies).
+```bash
+PATH="/opt/homebrew/opt/openjdk/bin:$PATH" \
+PICOCHEM_CKPT="$(pwd)/runs/device_bpe_d512_v2/ckpt_latest.npz" \
+PICOCHEM_IUPAC_BPE="$(pwd)/data/iupac_bpe_v2.json" \
+.venv/bin/python demo/server.py
+# open http://localhost:8000
+```
+
+The server has no web framework. It is Python's standard library `http.server` plus the model's own dependencies. The SMILES box decodes a beam, checks each candidate by round tripping the name through OPSIN, and returns the one that reproduces your input molecule, with a note when it is verified. Set `PICOCHEM_BEAM=10` for a snappier response at slightly lower accuracy, or `=5` for the fastest setting.
+
+See `demo/README.md` for the prerequisites and the regeneration steps on a fresh clone.
+
+## How it works
+
+The model is a standard encoder decoder transformer. The encoder reads the SMILES tokens, the decoder writes the trace one token at a time and cross attends to the encoder. The final model is 512 wide, 8 heads, 3 encoder layers and 3 decoder layers, with a 64 token decoder context. Learned positional embeddings, tied decoder input and output embeddings.
+
+The interesting part is everything underneath that, which is written by hand rather than pulled from a framework.
+
+### The from scratch stack
+
+There are two complete implementations of the same model that share weights and a tokenizer:
+
+1. A pure NumPy version. Every forward pass has a matching backward pass derived by hand and checked against finite differences in the test suite. This is the reference. It is slow but it is correct, and it is what the CUDA version is validated against.
+2. A CUDA version. Hand written kernels for matmul and its two backward passes, softmax, layer norm, GeLU, cross entropy, embedding, Adam, bias, and batched matmul, bound to Python through pybind11. The training loop keeps the transformer stack resident on the device and updates it in place, so a training step does not shuttle the weights back and forth across the bus on every iteration.
+
+The host keeps the embedding tables and does the gather and scatter on the CPU, while the device holds the stack. That split is deliberate. It also turns out to be the bottleneck: during training the GPU sits around 35 to 40% utilization because the host side embedding work and the transfers are the limiting factor, not the matmuls. For a model this size that is fine, and it means the choice of GPU barely matters.
+
+### The trace target
+
+The training target is not the bare IUPAC name. It is the trace shown above, built for every molecule by `picochem/traces.py` using RDKit: the parent ring system or longest chain, the functional groups present, the heavy atom count, the ring count, and finally the name. Training the model to lay out that scaffold before naming gives two things. It makes the output easier to parse and check, and it gives a place to read off what the model believes about a molecule before it names it, which the interpretability experiments use.
+
+### Tokenizing names is the hard part
+
+SMILES tokenizes cleanly. The Schwaller regex handles multi character atoms like `[C@@H]`, `Cl`, and `Br`, and the whole alphabet is 341 tokens.
+
+Names are harder. The first model split names on word boundaries, so a fragment like `acetyloxybenzoic` became a single token, and any fragment seen fewer than five times in the corpus collapsed to `<unk>`. The model literally could not spell rare names. That capped the valid name rate at about 86% and showed up as broken output on anything off the beaten path.
+
+The fix was a byte pair tokenizer written for this purpose in `picochem/bpe.py`. It keeps the trace tags and the group separator as atomic tokens and learns merges over everything else starting from characters. The result has 4,000 tokens, never emits `<unk>` on real names, reconstructs the original string exactly, and produces shorter sequences than the word tokenizer did. Valid name rate went from 86% to 98%.
+
+### Training
+
+`scripts/train_device.py` is the GPU trainer. It runs the resident stack with a warmup then cosine learning rate schedule and writes a checkpoint every thousand steps, keeping numbered snapshots so a run is always recoverable.
+
+It earned the recovery logic the hard way. The first scaled run trained beautifully down to a loss of 0.37, then a gradient spike near peak learning rate drove the loss to NaN at step 19,000 and, because the trainer was overwriting a single checkpoint file, the NaN weights erased the good ones. The device trainer has no gradient clipping, and a clip would need a reduction kernel that does not exist yet. The cheaper fix that shipped: skip the optimizer step whenever the loss is not finite, so one bad batch can no longer poison the weights, only checkpoint finite states, keep numbered snapshots, and drop the peak learning rate a little. The next run went the full 120,000 steps with zero NaN events and zero skipped steps.
+
+### Evaluation, and a verifier you get for free
+
+The eval metric is exact structure match, and the key tool is OPSIN, an open source IUPAC name parser. Because OPSIN turns a name back into a molecule, and the input to the model is a molecule, the model can check its own answers without any labels at inference time. Generate a name, parse it back, canonicalize both sides with RDKit, and ask whether they are the same molecule.
+
+That single fact drives the headline result. Instead of trusting the model's top guess, the decoder produces a beam of candidates and keeps the one that round trips back to the input. With a beam of 5 that lifts structure match from 79.5% to 89.6%. With a beam of 20 it reaches 95.8%. The model usually knows the right answer; it just does not always rank it first, and the verifier lets us pick it out.
+
+### What it still gets wrong
+
+Three small diagnostic scripts under `experiments/` pin this down rather than guess at it.
+
+`stereo_breakdown.py` was the surprise. Stereochemistry looked like the obvious culprit, since 18% of targets carry stereocenters. It is not. When the model gets a molecule's skeleton right it gets the stereochemistry right too, 887 times out of 896. Pure stereo mistakes account for under one point of the gap.
+
+The real gap is constitutional. Right atoms and right groups, wrong arrangement: a substituent on the wrong ring carbon, a wrong locant, a wrong ring fusion. About half of the remaining errors share the exact molecular formula of the target, which is the signature of positional isomers.
+
+`beam_ceiling.py` measured the headroom. A correct answer sits in the model's top 20 candidates for 95.8% of molecules, and the curve is still climbing at 20. So the model knows far more than a greedy pass reveals. That is why the verifier rerank works so well, and it is the reason the project stops here: the deployed accuracy is already at that ceiling.
+
+## Reproduce it
+
+On a fresh clone the data, vocab, and checkpoints are not in the repository (they are large and gitignored), but they regenerate deterministically.
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && pip install -e .
+
+python scripts/download_data.py     # streams 1M filtered PubChem pairs from HuggingFace
+python scripts/build_vocab.py       # SMILES vocab (341 tokens)
+python scripts/generate_traces.py   # RDKit reasoning traces -> data/traces.parquet
+python scripts/build_bpe.py --vocab_size 4000 --train_lines 80000   # IUPAC byte pair tokenizer
+```
+
+Training needs a CUDA GPU and the compiled extension:
+
+```bash
+bash scripts/build_cuda.sh          # builds picochem_cuda.so
+bash scripts/run_retrain.sh         # full pipeline: data, tokenizers, smoke test, train
+```
+
+`run_retrain.sh` takes the model size, step count, and learning rate as environment variables. The default reproduces the final model: 512 wide, 8 heads, 3 plus 3 layers, byte pair target, cosine schedule, 120,000 steps.
+
+One note on hardware. The kernels build against the GPU's architecture and fall back to the newest virtual architecture the toolkit knows when the GPU is newer than the toolkit, emitting PTX that the driver compiles at load time. That is what let the final model train on a Blackwell card (compute capability 12.0) with a CUDA 12.4 toolkit that does not know that architecture. If you hit an architecture error, put CUDA on your `PATH` and the build will detect and handle it.
+
+Evaluate a checkpoint, with the verifier rerank:
+
+```bash
+PATH="/opt/homebrew/opt/openjdk/bin:$PATH" python scripts/evaluate.py \
+  --checkpoint runs/device_bpe_d512_v2/ckpt_latest.npz \
+  --iupac_bpe data/iupac_bpe_v2.json \
+  --n_samples 2000 --rerank --beam_width 20
+```
+
+OPSIN needs a Java runtime. Install `py2opsin` and a JDK, then make sure `java` is on the path. Without Java you still get the trace validity rate, just not the structure match.
+
+## Repository layout
+
+```
+picochem/            the model: ops, attention, encoder, decoder, model, optimizer,
+                     scheduler, checkpointing, data, bpe, device_layers, evaluate
+picochem/kernels/    the CUDA extension and its source
+scripts/             download_data, build_vocab, build_bpe, generate_traces,
+                     train (CPU), train_device (GPU), evaluate, run_retrain, build_cuda
+experiments/         failure_taxonomy, stereo_breakdown, beam_ceiling
+demo/                the local inference site (server.py, static/index.html)
+picochem-site/       the project write up site (Astro)
+tests/               gradient checks against finite differences
+```
+
+## Status
+
+Done. The model translates SMILES to IUPAC at 95.8% exact match with verifier reranking, the demo serves it locally, and the failure analysis says the remaining gap is positional chemistry that the model mostly already solves and ranks just below first. The write up of how it was built is on the demo site under the blog.
