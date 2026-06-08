@@ -72,7 +72,7 @@ except Exception:
     OPSIN_OK = False
 
 
-BEAM_WIDTH = int(os.environ.get("PICOCHEM_BEAM", "5"))
+BEAM_WIDTH = int(os.environ.get("PICOCHEM_BEAM", "20"))
 
 
 def smiles_to_iupac(smiles):
