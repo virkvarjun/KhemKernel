@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 260" role="img" aria-label="Encoder and decoder block structure">
+  <style>
+    .bg{fill:#171a21;stroke:#2a2f3a;}
+    .b{fill:#1e222b;stroke:#2a2f3a;}.bn{fill:#20262f;stroke:#3a4250;}.ba{fill:#16202e;stroke:#36506e;}
+    .t{fill:#e6e9ef;font:12px monospace;}.tm{fill:#9aa3b2;font:11px monospace;}.ta{fill:#7ee0a9;font:11px monospace;}
+    .ln{stroke:#6ea8fe;stroke-width:1.4;fill:none;}.lg{stroke:#4a5263;stroke-width:1.2;fill:none;stroke-dasharray:4 3;}
+  </style>
+  <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6ea8fe"/></marker></defs>
+  <rect class="bg" x="1" y="1" width="798" height="258" rx="12"/>
+  <text class="tm" x="50" y="28">ENCODER BLOCK</text>
+  <line class="ln" x1="80" y1="48" x2="80" y2="233"/>
+  <rect class="bn" x="110" y="48" width="150" height="30" rx="5"/><text class="t" x="122" y="68">LN &#8594; self-attn</text>
+  <rect class="bn" x="110" y="158" width="150" height="30" rx="5"/><text class="t" x="122" y="178">LN &#8594; FFN</text>
+  <circle class="b" cx="80" cy="103" r="9"/><text class="t" x="76" y="107">+</text>
+  <circle class="b" cx="80" cy="213" r="9"/><text class="t" x="76" y="217">+</text>
+  <path class="ln" d="M80,48 L80,94" marker-end="url(#a2)"/>
+  <path class="ln" d="M260,63 L290,63 L290,103 L90,103" marker-end="url(#a2)"/>
+  <path class="ln" d="M80,112 L80,204" marker-end="url(#a2)"/>
+  <path class="ln" d="M260,173 L290,173 L290,213 L90,213" marker-end="url(#a2)"/>
+  <path class="ln" d="M80,222 L80,248" marker-end="url(#a2)"/>
+  <text class="tm" x="470" y="28">DECODER BLOCK</text>
+  <line class="ln" x1="500" y1="48" x2="500" y2="253"/>
+  <rect class="bn" x="530" y="48" width="190" height="28" rx="5"/><text class="t" x="542" y="67">LN &#8594; masked self-attn</text>
+  <rect class="ba" x="530" y="126" width="190" height="28" rx="5"/><text class="t" x="542" y="145">LN &#8594; cross-attn</text>
+  <rect class="bn" x="530" y="204" width="190" height="28" rx="5"/><text class="t" x="542" y="223">LN &#8594; FFN</text>
+  <circle class="b" cx="500" cy="98" r="9"/><text class="t" x="496" y="102">+</text>
+  <circle class="b" cx="500" cy="176" r="9"/><text class="t" x="496" y="180">+</text>
+  <circle class="b" cx="500" cy="248" r="9"/><text class="t" x="496" y="252">+</text>
+  <path class="ln" d="M500,48 L500,89" marker-end="url(#a2)"/>
+  <path class="ln" d="M720,62 L750,62 L750,98 L510,98" marker-end="url(#a2)"/>
+  <path class="ln" d="M500,107 L500,167" marker-end="url(#a2)"/>
+  <path class="ln" d="M720,140 L750,140 L750,176 L510,176" marker-end="url(#a2)"/>
+  <path class="ln" d="M500,185 L500,239" marker-end="url(#a2)"/>
+  <path class="ln" d="M720,218 L750,218 L750,248 L510,248" marker-end="url(#a2)"/>
+  <text class="ta" x="372" y="143">enc K,V</text>
+  <path class="lg" d="M360,140 L528,140" marker-end="url(#a2)"/>
+</svg>

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 212" role="img" aria-label="Host device training split">
+  <style>
+    .bg{fill:#171a21;stroke:#2a2f3a;}
+    .b{fill:#1e222b;stroke:#2a2f3a;}.bn{fill:#20262f;stroke:#3a4250;}.ba{fill:#16202e;stroke:#36506e;}
+    .t{fill:#e6e9ef;font:12px monospace;}.tm{fill:#9aa3b2;font:11px monospace;}.ta{fill:#7ee0a9;font:11px monospace;}
+    .ln{stroke:#6ea8fe;stroke-width:1.4;fill:none;}.lg{stroke:#7ee0a9;stroke-width:1.4;fill:none;}
+  </style>
+  <defs>
+    <marker id="a4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6ea8fe"/></marker>
+    <marker id="a4b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#7ee0a9"/></marker>
+  </defs>
+  <rect class="bg" x="1" y="1" width="798" height="210" rx="12"/>
+  <rect class="b" x="16" y="22" width="356" height="170" rx="10"/>
+  <text class="tm" x="30" y="44">HOST (CPU)</text>
+  <rect class="bn" x="36" y="58" width="160" height="34" rx="5"/><text class="t" x="48" y="79">embedding tables</text>
+  <rect class="bn" x="36" y="106" width="160" height="34" rx="5"/><text class="t" x="48" y="127">gather + scatter</text>
+  <rect class="bn" x="36" y="152" width="160" height="30" rx="5"/><text class="t" x="48" y="172">NumPy Adam (emb)</text>
+  <rect class="b" x="428" y="22" width="356" height="170" rx="10"/>
+  <text class="tm" x="442" y="44">DEVICE (GPU)</text>
+  <rect class="ba" x="604" y="58" width="164" height="34" rx="5"/><text class="t" x="616" y="79">resident stack</text>
+  <rect class="ba" x="604" y="106" width="164" height="34" rx="5"/><text class="t" x="616" y="127">fwd / bwd kernels</text>
+  <rect class="ba" x="604" y="152" width="164" height="30" rx="5"/><text class="t" x="616" y="172">dt_adam (in place)</text>
+  <line class="ln" x1="372" y1="82" x2="602" y2="82" marker-end="url(#a4)"/>
+  <text class="tm" x="398" y="76">embedded batch &#8594;</text>
+  <line class="lg" x1="602" y1="122" x2="374" y2="122" marker-end="url(#a4b)"/>
+  <text class="ta" x="398" y="142">&#8592; grad to embeddings</text>
+</svg>

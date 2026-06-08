@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 232" role="img" aria-label="End to end data flow">
+  <style>
+    .bg{fill:#171a21;stroke:#2a2f3a;}
+    .b{fill:#1e222b;stroke:#2a2f3a;}.bn{fill:#20262f;stroke:#3a4250;}.ba{fill:#16202e;stroke:#36506e;}
+    .t{fill:#e6e9ef;font:12px monospace;}.tm{fill:#9aa3b2;font:11px monospace;}.ta{fill:#7ee0a9;font:11px monospace;}
+    .ln{stroke:#6ea8fe;stroke-width:1.4;fill:none;}.lg{stroke:#4a5263;stroke-width:1.2;fill:none;stroke-dasharray:4 3;}
+  </style>
+  <defs><marker id="a1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6ea8fe"/></marker></defs>
+  <rect class="bg" x="1" y="1" width="798" height="230" rx="12"/>
+  <rect class="b" x="14" y="22" width="150" height="40" rx="6"/>
+  <text class="t" x="26" y="40">SMILES string</text><text class="tm" x="26" y="54">CC(=O)Oc1ccccc1C(=O)O</text>
+  <rect class="bn" x="186" y="22" width="120" height="40" rx="6"/>
+  <text class="t" x="198" y="40">SMILES tok.</text><text class="tm" x="198" y="54">341 vocab</text>
+  <rect class="b" x="328" y="22" width="120" height="40" rx="6"/>
+  <text class="t" x="340" y="40">+ token &amp;</text><text class="tm" x="340" y="54">pos embed</text>
+  <rect class="ba" x="470" y="16" width="150" height="52" rx="6"/>
+  <text class="t" x="482" y="36">Encoder</text><text class="tm" x="482" y="52">3 blocks, d=512</text>
+  <line class="ln" x1="164" y1="42" x2="184" y2="42" marker-end="url(#a1)"/>
+  <line class="ln" x1="306" y1="42" x2="326" y2="42" marker-end="url(#a1)"/>
+  <line class="ln" x1="448" y1="42" x2="468" y2="42" marker-end="url(#a1)"/>
+  <line class="ln" x1="545" y1="68" x2="545" y2="112" marker-end="url(#a1)"/>
+  <text class="ta" x="551" y="94">K,V (cross-attn)</text>
+  <rect class="ba" x="470" y="114" width="150" height="52" rx="6"/>
+  <text class="t" x="482" y="134">Decoder</text><text class="tm" x="482" y="150">3 blocks, masked</text>
+  <rect class="bn" x="640" y="114" width="148" height="52" rx="6"/>
+  <text class="t" x="652" y="134">final LN +</text><text class="tm" x="652" y="150">tied projection</text>
+  <line class="ln" x1="620" y1="140" x2="638" y2="140" marker-end="url(#a1)"/>
+  <rect class="b" x="328" y="114" width="120" height="52" rx="6"/>
+  <text class="t" x="340" y="134">BPE trace</text><text class="tm" x="340" y="150">4000 vocab</text>
+  <line class="lg" x1="448" y1="140" x2="468" y2="140" marker-end="url(#a1)"/>
+  <rect class="b" x="472" y="186" width="316" height="36" rx="6"/>
+  <text class="tm" x="482" y="208">&lt;parent&gt;benzene...&lt;name&gt;2-acetyloxybenzoic acid&lt;/name&gt;</text>
+  <line class="ln" x1="715" y1="166" x2="715" y2="184" marker-end="url(#a1)"/>
+  <rect class="bn" x="14" y="114" width="150" height="52" rx="6"/>
+  <text class="t" x="26" y="134">OPSIN parse</text><text class="tm" x="26" y="150">name &#8594; molecule</text>
+  <line class="lg" x1="472" y1="204" x2="166" y2="204" marker-end="url(#a1)"/>
+  <text class="tm" x="206" y="198">parse the name back</text>
+  <line class="ln" x1="89" y1="114" x2="89" y2="66" marker-end="url(#a1)"/>
+  <text class="ta" x="96" y="94">same molecule?</text>
+</svg>
