@@ -171,6 +171,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/", "/index.html"):
             self._serve_static("index.html")
+        elif self.path in ("/writeup", "/writeup.html"):
+            self._serve_static("writeup.html")
         elif self.path == "/api/health":
             self._json(200, {"ok": True, "step": int(STEP), "opsin": OPSIN_OK})
         else:
