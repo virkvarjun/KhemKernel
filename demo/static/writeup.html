@@ -8,85 +8,264 @@
   :root {
     --bg: #0f1115; --panel: #171a21; --panel-2: #1e222b; --line: #2a2f3a;
     --ink: #e6e9ef; --muted: #9aa3b2; --accent: #6ea8fe; --accent-2: #7ee0a9;
-    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --warn: #f0a35e; --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 16px/1.7 system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 32px 24px 80px; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.7 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 32px 24px 80px; }
   a { color: var(--accent); }
   .back { font: 13px/1 var(--mono); color: var(--muted); text-decoration: none; }
   .back:hover { color: var(--ink); }
-  h1 { font-size: 30px; letter-spacing: -0.01em; margin: 22px 0 6px; }
+  h1 { font-size: 31px; letter-spacing: -0.01em; margin: 22px 0 6px; }
   .lede { color: var(--muted); font-size: 15px; margin-bottom: 28px; }
-  h2 { font-size: 21px; margin: 38px 0 10px; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; margin: 44px 0 10px; letter-spacing: -0.01em; }
+  h3 { font-size: 17px; margin: 28px 0 6px; color: var(--ink); }
   p { margin: 14px 0; }
   code { font: 13.5px/1 var(--mono); background: var(--panel-2); padding: 2px 6px; border-radius: 5px; }
   pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; }
   pre code { background: none; padding: 0; font-size: 13px; line-height: 1.55; }
-  table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14.5px; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 600; }
-  td:first-child { color: var(--ink); }
-  hr { border: 0; border-top: 1px solid var(--line); margin: 36px 0; }
-  .meta { color: var(--muted); font: 12.5px/1 var(--mono); margin-bottom: 4px; }
+  td:first-child { color: var(--ink); white-space: nowrap; }
+  .mono td:first-child { font-family: var(--mono); font-size: 13px; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
+  figure { margin: 24px 0; }
+  figure.diagram { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 16px 10px; }
+  figure.diagram svg { width: 100%; height: auto; display: block; }
+  figcaption { color: var(--muted); font-size: 12.5px; margin-top: 10px; text-align: center; }
+  .kerns { columns: 2; font: 12.5px/1.9 var(--mono); color: var(--muted); margin: 10px 0; }
+  /* svg helpers */
+  .b { fill: #1e222b; stroke: #2a2f3a; }
+  .bn { fill: #20262f; stroke: #3a4250; }
+  .ba { fill: #16202e; stroke: #36506e; }
+  .t { fill: #e6e9ef; font: 12px/1 "JetBrains Mono", monospace; }
+  .tm { fill: #9aa3b2; font: 11px/1 "JetBrains Mono", monospace; }
+  .ta { fill: #7ee0a9; font: 11px/1 "JetBrains Mono", monospace; }
+  .ln { stroke: #6ea8fe; stroke-width: 1.4; fill: none; }
+  .lg { stroke: #4a5263; stroke-width: 1.2; fill: none; stroke-dasharray: 4 3; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <a class="back" href="/">&larr; back to the demo</a>
 
-  <h1>How ChemKernel names molecules</h1>
-  <p class="lede">Building a SMILES to IUPAC translator from hand-written NumPy gradients up through CUDA kernels, a byte pair tokenizer, and a verifier that lets the model check its own answers. The story of getting from 67% to 95.8% exact match.</p>
+  <h1>How ChemKernel works</h1>
+  <p class="lede">A SMILES to IUPAC translator built from hand-written NumPy gradients up through CUDA kernels, a byte pair tokenizer, and a verifier that lets the model grade its own answers. This is the technical writeup: architecture, kernels, training, decoding, and where the errors actually are.</p>
 
-  <p>You can hand ChemKernel a molecule written as a SMILES string and it will write back the molecule's systematic IUPAC name. Type in <code>CC(=O)Oc1ccccc1C(=O)O</code> and it answers <code>2-acetyloxybenzoic acid</code>, which is aspirin. Type in ibuprofen and it gives you <code>2-[4-(2-methylpropyl)phenyl]propanoic acid</code>. On molecules it has never seen it gets the exact structure right 95.8% of the time.</p>
+  <p>Give ChemKernel a molecule as a SMILES string and it returns the molecule's systematic IUPAC name. <code>CC(=O)Oc1ccccc1C(=O)O</code> comes back as <code>2-acetyloxybenzoic acid</code> (aspirin). On held out molecules it gets the exact structure right 95.8% of the time when it is allowed to propose several names and check them. The model is a transformer written by hand, the GPU kernels under it are written by hand, and the last push in accuracy comes from the fact that the answers are checkable.</p>
 
-  <p>That last number is the one I care about, and most of this post is the story of how it got there, from the gradients up. The short version: the model is a transformer written by hand, the GPU kernels under it are also written by hand, and the final push in accuracy came from noticing that the model can check its own answers for free.</p>
+  <h2>The pipeline, end to end</h2>
+  <p>A molecule goes in as text, gets tokenized and embedded, runs through an encoder, the decoder writes a reasoning trace token by token while attending back to the encoder, and the name inside that trace gets parsed back into a molecule and compared to the input. That last step is both the eval metric and, at inference, the thing that picks the right candidate.</p>
 
-  <h2>Why naming molecules is a good problem</h2>
-  <p>I picked SMILES to IUPAC translation because it sits in a useful spot. There is a clean ground truth, so you are never arguing about whether an answer is right. The vocabulary is small enough that full attention is cheap at modest model sizes. And there is a long tail of genuinely hard cases, like stereochemistry, fused ring systems, and where exactly a substituent attaches, so the problem does not collapse the moment you start.</p>
-  <p>The part I did not appreciate at the start, and which ended up mattering most, is that the answer is checkable. There is an open source parser called OPSIN that reads an IUPAC name and gives you back the molecule. So if the model proposes a name, I can parse it back into a structure and compare it to the molecule I started with. No labels needed at inference, just a yes or no on every guess. Hold that thought.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 800 230" role="img" aria-label="End to end data flow">
+      <defs><marker id="a1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6ea8fe"/></marker></defs>
+      <!-- row 1 -->
+      <rect class="b" x="8" y="20" width="150" height="40" rx="6"/>
+      <text class="t" x="20" y="38">SMILES string</text><text class="tm" x="20" y="52">CC(=O)Oc1ccccc1C(=O)O</text>
+      <rect class="bn" x="180" y="20" width="120" height="40" rx="6"/>
+      <text class="t" x="192" y="38">SMILES tok.</text><text class="tm" x="192" y="52">341 vocab</text>
+      <rect class="b" x="322" y="20" width="120" height="40" rx="6"/>
+      <text class="t" x="334" y="38">+ token &amp;</text><text class="tm" x="334" y="52">pos embed</text>
+      <rect class="ba" x="464" y="14" width="150" height="52" rx="6"/>
+      <text class="t" x="476" y="34">Encoder</text><text class="tm" x="476" y="50">3 blocks, d=512</text>
+      <line class="ln" x1="158" y1="40" x2="178" y2="40" marker-end="url(#a1)"/>
+      <line class="ln" x1="300" y1="40" x2="320" y2="40" marker-end="url(#a1)"/>
+      <line class="ln" x1="442" y1="40" x2="462" y2="40" marker-end="url(#a1)"/>
+      <!-- encoder to decoder (cross attn) -->
+      <line class="ln" x1="539" y1="66" x2="539" y2="110" marker-end="url(#a1)"/>
+      <text class="ta" x="545" y="92">K,V (cross-attn)</text>
+      <!-- row 2 decoder -->
+      <rect class="ba" x="464" y="112" width="150" height="52" rx="6"/>
+      <text class="t" x="476" y="132">Decoder</text><text class="tm" x="476" y="148">3 blocks, masked</text>
+      <rect class="bn" x="636" y="112" width="150" height="52" rx="6"/>
+      <text class="t" x="648" y="132">final LN +</text><text class="tm" x="648" y="148">tied projection</text>
+      <line class="ln" x1="614" y1="138" x2="634" y2="138" marker-end="url(#a1)"/>
+      <!-- trace tokens feed decoder -->
+      <rect class="b" x="322" y="112" width="120" height="52" rx="6"/>
+      <text class="t" x="334" y="132">BPE trace</text><text class="tm" x="334" y="148">4000 vocab</text>
+      <line class="lg" x1="442" y1="138" x2="462" y2="138" marker-end="url(#a1)"/>
+      <!-- output trace -->
+      <rect class="b" x="468" y="184" width="318" height="38" rx="6"/>
+      <text class="tm" x="478" y="207">&lt;parent&gt;benzene&lt;/parent&gt;...&lt;name&gt;2-acetyloxybenzoic acid&lt;/name&gt;</text>
+      <line class="ln" x1="711" y1="164" x2="711" y2="182" marker-end="url(#a1)"/>
+      <!-- verifier loop -->
+      <rect class="bn" x="8" y="112" width="150" height="52" rx="6"/>
+      <text class="t" x="20" y="132">OPSIN parse</text><text class="tm" x="20" y="148">name &rarr; molecule</text>
+      <line class="lg" x1="468" y1="203" x2="160" y2="203" marker-end="url(#a1)"/>
+      <text class="tm" x="200" y="197">parse the name back</text>
+      <line class="ln" x1="83" y1="112" x2="83" y2="64" marker-end="url(#a1)"/>
+      <text class="ta" x="90" y="92">same molecule?</text>
+    </svg>
+    <figcaption>Encoder reads the SMILES, the decoder writes the trace and cross-attends to the encoder, and the name is parsed back to a molecule and compared to the input. The dashed return path is the verifier.</figcaption>
+  </figure>
 
-  <h2>The shape of the thing</h2>
-  <p>The model is an ordinary encoder decoder transformer. The encoder reads the SMILES tokens. The decoder writes the answer one token at a time and looks back at the encoder through cross attention. Nothing exotic.</p>
-  <p>The one design choice worth calling out is that the model does not write the name directly. It writes a short trace first:</p>
+  <h2>Architecture at a glance</h2>
+  <p>Standard encoder decoder transformer, pre-norm, with a few specifics that matter.</p>
+  <table class="mono">
+    <tbody>
+      <tr><td>d_model</td><td>512</td></tr>
+      <tr><td>heads</td><td>8 (head dim 64)</td></tr>
+      <tr><td>d_ff</td><td>2048, GeLU (tanh approximation)</td></tr>
+      <tr><td>layers</td><td>3 encoder, 3 decoder</td></tr>
+      <tr><td>norm</td><td>pre-LN (LayerNorm before each sublayer, residual around it)</td></tr>
+      <tr><td>positions</td><td>learned embeddings, added to token embeddings</td></tr>
+      <tr><td>output</td><td>tied with the decoder token embedding (logits = h @ E_tgt&#7488;)</td></tr>
+      <tr><td>context</td><td>src up to 100 tokens, tgt up to 64</td></tr>
+      <tr><td>vocab</td><td>341 SMILES, 4000 IUPAC (byte pair)</td></tr>
+      <tr><td>params</td><td>~24M</td></tr>
+      <tr><td>optimizer</td><td>Adam (0.9, 0.999, 1e-8), warmup 2000 then cosine to 1e-5, peak 2e-4</td></tr>
+      <tr><td>training</td><td>120k steps, batch 32, ~12.6h on one GPU</td></tr>
+    </tbody>
+  </table>
+
+  <h3>The blocks</h3>
+  <p>Both block types are pre-norm: normalize, run the sublayer, add the residual. The encoder block has two sublayers (self-attention, then a feed forward network). The decoder block has three: masked self-attention, cross-attention into the encoder, then the feed forward network. A final LayerNorm sits before the output projection.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 250" role="img" aria-label="Encoder and decoder block structure">
+      <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6ea8fe"/></marker></defs>
+      <text class="tm" x="40" y="20">ENCODER BLOCK</text>
+      <!-- encoder column -->
+      <line class="ln" x1="70" y1="40" x2="70" y2="225"/>
+      <rect class="bn" x="100" y="40" width="150" height="30" rx="5"/><text class="t" x="112" y="60">LN &rarr; self-attn</text>
+      <rect class="bn" x="100" y="150" width="150" height="30" rx="5"/><text class="t" x="112" y="170">LN &rarr; FFN</text>
+      <!-- residual adds -->
+      <circle class="b" cx="70" cy="95" r="9"/><text class="t" x="66" y="99">+</text>
+      <circle class="b" cx="70" cy="205" r="9"/><text class="t" x="66" y="209">+</text>
+      <path class="ln" d="M70,40 L70,86" marker-end="url(#a2)"/>
+      <path class="ln" d="M70,55 L100,55 L100,55" /><path class="ln" d="M100,55 L100,40"/>
+      <path class="ln" d="M250,55 L280,55 L280,95 L80,95" marker-end="url(#a2)"/>
+      <path class="ln" d="M70,104 L70,196" marker-end="url(#a2)"/>
+      <path class="ln" d="M70,165 L100,165" /><path class="ln" d="M100,165 L100,180" transform="translate(0,-15)"/>
+      <path class="ln" d="M250,165 L280,165 L280,205 L80,205" marker-end="url(#a2)"/>
+      <path class="ln" d="M70,214 L70,240" marker-end="url(#a2)"/>
+      <!-- decoder column -->
+      <text class="tm" x="470" y="20">DECODER BLOCK</text>
+      <line class="ln" x1="500" y1="40" x2="500" y2="245"/>
+      <rect class="bn" x="530" y="40" width="180" height="28" rx="5"/><text class="t" x="542" y="59">LN &rarr; masked self-attn</text>
+      <rect class="ba" x="530" y="118" width="180" height="28" rx="5"/><text class="t" x="542" y="137">LN &rarr; cross-attn</text>
+      <rect class="bn" x="530" y="196" width="180" height="28" rx="5"/><text class="t" x="542" y="215">LN &rarr; FFN</text>
+      <circle class="b" cx="500" cy="90" r="9"/><text class="t" x="496" y="94">+</text>
+      <circle class="b" cx="500" cy="168" r="9"/><text class="t" x="496" y="172">+</text>
+      <circle class="b" cx="500" cy="240" r="9"/><text class="t" x="496" y="244">+</text>
+      <path class="ln" d="M500,40 L500,81" marker-end="url(#a2)"/>
+      <path class="ln" d="M710,54 L740,54 L740,90 L510,90" marker-end="url(#a2)"/>
+      <path class="ln" d="M500,99 L500,159" marker-end="url(#a2)"/>
+      <path class="ln" d="M710,132 L740,132 L740,168 L510,168" marker-end="url(#a2)"/>
+      <path class="ln" d="M500,177 L500,231" marker-end="url(#a2)"/>
+      <path class="ln" d="M710,210 L740,210 L740,240 L510,240" marker-end="url(#a2)"/>
+      <text class="ta" x="372" y="135">enc K,V</text>
+      <path class="lg" d="M360,132 L528,132" marker-end="url(#a2)"/>
+    </svg>
+    <figcaption>Pre-norm residual blocks. The vertical line is the residual stream; each sublayer normalizes a copy, transforms it, and adds back. The decoder's middle sublayer pulls keys and values from the encoder.</figcaption>
+  </figure>
+
+  <h3>Attention, concretely</h3>
+  <p>Each attention sublayer projects its input to queries, keys, and values with separate weight matrices, splits them into 8 heads of dimension 64, and computes, per head,</p>
+  <pre><code>Attention(Q, K, V) = softmax( Q K&#7488; / &#8730;64  +  mask ) V</code></pre>
+  <p>The heads concatenate back to 512 and pass through an output projection. The mask is what distinguishes the three uses: encoder self-attention masks only padding, decoder self-attention adds a causal mask so position t cannot see the future, and cross-attention masks the encoder's padding so the decoder never attends to pad tokens. Every one of these, forward and backward, is a hand-written kernel checked against finite differences.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 180" role="img" aria-label="Multi-head attention internals">
+      <defs><marker id="a3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6ea8fe"/></marker></defs>
+      <rect class="b" x="8" y="70" width="70" height="40" rx="6"/><text class="t" x="30" y="94">x</text>
+      <rect class="bn" x="120" y="20" width="64" height="28" rx="5"/><text class="t" x="142" y="39">Wq</text>
+      <rect class="bn" x="120" y="74" width="64" height="28" rx="5"/><text class="t" x="142" y="93">Wk</text>
+      <rect class="bn" x="120" y="128" width="64" height="28" rx="5"/><text class="t" x="142" y="147">Wv</text>
+      <line class="ln" x1="78" y1="86" x2="118" y2="34" marker-end="url(#a3)"/>
+      <line class="ln" x1="78" y1="90" x2="118" y2="88" marker-end="url(#a3)"/>
+      <line class="ln" x1="78" y1="94" x2="118" y2="142" marker-end="url(#a3)"/>
+      <rect class="bn" x="224" y="60" width="110" height="60" rx="6"/><text class="t" x="236" y="84">split into</text><text class="tm" x="236" y="102">8 heads &times;64</text>
+      <line class="ln" x1="184" y1="34" x2="222" y2="74" marker-end="url(#a3)"/>
+      <line class="ln" x1="184" y1="88" x2="222" y2="90" marker-end="url(#a3)"/>
+      <line class="ln" x1="184" y1="142" x2="222" y2="106" marker-end="url(#a3)"/>
+      <rect class="ba" x="374" y="60" width="150" height="60" rx="6"/><text class="t" x="386" y="84">softmax(QK&#7488;/&#8730;64</text><text class="t" x="386" y="102">+ mask) V</text>
+      <line class="ln" x1="334" y1="90" x2="372" y2="90" marker-end="url(#a3)"/>
+      <rect class="bn" x="564" y="70" width="90" height="40" rx="6"/><text class="t" x="576" y="90">merge</text><text class="tm" x="576" y="104">heads</text>
+      <line class="ln" x1="524" y1="90" x2="562" y2="90" marker-end="url(#a3)"/>
+      <rect class="bn" x="694" y="70" width="64" height="40" rx="6"/><text class="t" x="710" y="94">Wo</text>
+      <line class="ln" x1="654" y1="90" x2="692" y2="90" marker-end="url(#a3)"/>
+    </svg>
+    <figcaption>One multi-head attention sublayer. Self-attention draws Q, K, V from the same input; cross-attention takes Q from the decoder and K, V from the encoder.</figcaption>
+  </figure>
+
+  <h2>The trace target</h2>
+  <p>The decoder does not write the name directly. It writes a structured trace, and the name is the last field:</p>
   <pre><code>&lt;parent&gt;benzene&lt;/parent&gt;&lt;groups&gt;phenol&lt;/groups&gt;&lt;atoms&gt;7&lt;/atoms&gt;&lt;rings&gt;1&lt;/rings&gt;&lt;name&gt;phenol&lt;/name&gt;</code></pre>
-  <p>It names the parent scaffold, lists the functional groups, counts the heavy atoms and rings, and only then commits to a name. I build these traces for every training molecule with RDKit. Two reasons. It makes the output trivial to parse and check, since the answer is always inside the <code>&lt;name&gt;</code> tag. And it gives somewhere to look when you want to know what the model believed about a molecule before it named it.</p>
+  <p>These traces are built for every training molecule by RDKit: parent ring system or longest chain, functional groups, heavy atom count, ring count, then the name. Naming the scaffold before committing to a name gives the output a fixed structure to parse, and gives a readable window into what the model believed about the molecule. The tags and the group separator are reserved tokens that the tokenizer never splits.</p>
 
-  <h2>Built twice, on purpose</h2>
-  <p>There are two complete copies of this model. One is pure NumPy, where every forward pass has a backward pass I derived by hand and checked against finite differences in the test suite. The other is CUDA, with kernels I wrote for matmul and both of its backward passes, softmax, layer norm, GeLU, cross entropy, the embedding lookup, Adam, and so on, wired into Python through pybind11.</p>
-  <p>The NumPy version is the reference. It is slow and it is correct, and the CUDA version is validated against it. This sounds like extra work and it is, but it saved me more than once. When a kernel was wrong, the symptom was a training loss that looked plausible but learned nothing, and the only way I caught it quickly was running the same batch through both and diffing the gradients.</p>
-  <p>The CUDA trainer keeps the transformer stack resident on the device and updates it in place, so a training step is not copying weights across the bus every iteration. The embedding tables stay on the host and do their gather and scatter on the CPU. That split has a funny consequence: during training the GPU runs at about 35 to 40% utilization, because the host side embedding work and the data movement are the real bottleneck, not the matmuls. For a model this size that is fine, and it means a fancier GPU would not have helped.</p>
+  <h2>Tokenizing names: the byte pair fix</h2>
+  <p>SMILES tokenizes with the Schwaller regex, which keeps multi character atoms like <code>[C@@H]</code>, <code>Cl</code>, and <code>Br</code> whole. The whole alphabet is 341 tokens.</p>
+  <p>Names were the problem. The first model split names on word boundaries, so <code>acetyloxybenzoic</code> was one token, and any fragment seen fewer than five times in the corpus became a single unknown token. The model could not spell rare names. The fix was a byte pair tokenizer written for this, which starts from characters and repeatedly merges the most frequent adjacent pair:</p>
+  <pre><code>step 0   d i m e t h y l a m i n o
+merge ('m','e')   ...  e t h  ->  reuse
+...
+result   di methyl amino   (3 tokens, no unknowns)</code></pre>
+  <p>It reserves the special tokens and trace tags, learns 4000 merges, can always fall back to characters so it never emits an unknown on a real name, reconstructs the original string exactly (spaces and all), and produces shorter sequences than the word tokenizer did. Verified across the corpus: zero unknowns, zero round trip mismatches. Valid name rate went from 86% to 98%, and this single change drove most of the accuracy jump.</p>
 
-  <h2>Spelling is the hard part</h2>
-  <p>SMILES tokenizes cleanly. There is a well known regex that keeps multi character atoms like <code>[C@@H]</code> and <code>Cl</code> intact, and the whole SMILES alphabet comes out to 341 tokens.</p>
-  <p>Names are where the first version fell down. I started by splitting IUPAC names on word boundaries, so a chunk like <code>acetyloxybenzoic</code> became one token. Any chunk that showed up fewer than five times across the corpus got mapped to a single unknown token. The effect was that the model could not spell anything rare. Ask the first model for alanine and it produced <code>2-</code> then an unknown token then <code>acid</code>. It knew the shape of the answer and could not write it.</p>
-  <p>The fix was a byte pair tokenizer I wrote for this. It treats the trace tags as atomic and learns merges over everything else, starting from individual characters and combining the pairs that show up most often. The result has 4,000 tokens, can spell any name because it can always fall back to characters, reconstructs the exact original string, and produces shorter sequences than the word tokenizer did. After the swap the rate of valid, parseable names went from 86% to 98%, and alanine came back as <code>2-aminopropanoic acid</code>, spelled correctly, with the space and everything.</p>
-  <p>This was the single biggest change. Greedy accuracy went from 67% to 79.5% on the strength of the tokenizer plus a wider model and a proper learning rate schedule.</p>
+  <h2>The kernels, and a deliberately lopsided training loop</h2>
+  <p>There are two copies of the model that share weights: a pure NumPy reference with hand-derived, finite-difference-checked backward passes, and a CUDA version. The CUDA build is a set of hand-written kernels bound to Python with pybind11:</p>
+  <div class="kerns">
+    matmul (naive, tiled)<br/>matmul backward dA, dB<br/>batched matmul<br/>softmax + backward<br/>layer norm + backward<br/>gelu + backward<br/>cross entropy + backward<br/>embedding backward<br/>adam (in place)<br/>bias add<br/>transpose<br/>split / merge heads
+  </div>
+  <p>The training loop is split across host and device on purpose. The transformer stack lives resident on the GPU and is updated in place by the Adam kernel, so weights do not cross the bus every step. The embedding tables stay on the host, where the gather and scatter happen in NumPy, with a NumPy Adam for those tables.</p>
 
-  <h2>The run that blew up</h2>
-  <p>The scaled retrain did not go smoothly the first time. It trained well, loss dropping past 0.37, and then at step 19,000 the loss became NaN and stayed there for the remaining hundred thousand steps. A gradient spike near peak learning rate had blown the model up, and because the trainer was overwriting a single checkpoint file, the NaN weights had already erased the last good ones. The whole overnight run was scrap.</p>
-  <p>The device trainer has no gradient clipping, and clipping properly would need a reduction kernel I had not written. So I took the cheaper route. Skip the optimizer step entirely whenever the loss is not finite, so one bad batch cannot poison the weights. Only ever write a checkpoint when the loss is finite. Keep numbered snapshots instead of one overwriting file. And drop the peak learning rate a notch for margin. The next run went the full 120,000 steps with zero NaN events and, as it turned out, zero skipped steps, because the lower learning rate avoided the spike on its own. The guards never had to fire, but I am keeping them.</p>
+  <figure class="diagram">
+    <svg viewBox="0 0 800 210" role="img" aria-label="Host device training split">
+      <defs><marker id="a4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6ea8fe"/></marker>
+      <marker id="a4b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#7ee0a9"/></marker></defs>
+      <rect class="b" x="8" y="20" width="360" height="170" rx="10"/>
+      <text class="tm" x="22" y="42">HOST (CPU)</text>
+      <rect class="bn" x="28" y="56" width="150" height="34" rx="5"/><text class="t" x="40" y="77">embedding tables</text>
+      <rect class="bn" x="28" y="104" width="150" height="34" rx="5"/><text class="t" x="40" y="125">gather + scatter</text>
+      <rect class="bn" x="28" y="150" width="150" height="30" rx="5"/><text class="t" x="40" y="170">NumPy Adam (emb)</text>
 
-  <h2>The model can check its own answers</h2>
-  <p>Here is where the held thought pays off. Because OPSIN turns a name back into a molecule, and the input to the model is a molecule, the model can grade its own output without any label. Generate a name, parse it back, canonicalize both molecules with RDKit, and ask if they are the same thing.</p>
-  <p>So instead of trusting the model's single best guess, I have the decoder produce a beam of candidates and keep the first one that round trips back to the input molecule. A beam of five takes structure match from 79.5% to 89.6%. A beam of twenty takes it to 95.8%. The model usually has the right answer somewhere in its top guesses. It just does not always put it first, and the verifier picks it out at no training cost.</p>
-  <p>This is the kind of trick that only works when you have a cheap, exact checker. Most generation problems do not. Molecule naming does, and it would be a waste not to use it. It is also what the SMILES box on this demo is doing right now.</p>
+      <rect class="b" x="432" y="20" width="360" height="170" rx="10"/>
+      <text class="tm" x="446" y="42">DEVICE (GPU)</text>
+      <rect class="ba" x="612" y="56" width="160" height="34" rx="5"/><text class="t" x="624" y="77">resident stack</text>
+      <rect class="ba" x="612" y="104" width="160" height="34" rx="5"/><text class="t" x="624" y="125">fwd / bwd kernels</text>
+      <rect class="ba" x="612" y="150" width="160" height="30" rx="5"/><text class="t" x="624" y="170">dt_adam (in place)</text>
 
-  <h2>What it actually gets wrong</h2>
-  <p>Before deciding what to do next I wanted to know precisely what the remaining errors were, so I wrote three small diagnostics rather than guess.</p>
-  <p>The first result overturned my assumption. I was sure stereochemistry was the problem, since it is fiddly and 18% of the test molecules have stereocenters. It is not. When the model gets a molecule's skeleton right, it gets the stereochemistry right too, 887 times out of 896. If you ignored stereochemistry entirely, accuracy would move by less than a point. I had been ready to spend real effort on the wrong thing, and the only reason I did not is that I measured it.</p>
-  <p>The actual errors are constitutional. Right atoms, right groups, wrong arrangement. A methyl on the wrong ring carbon, a wrong locant, a wrong ring fusion. Roughly half of the remaining mistakes have the exact same molecular formula as the target, which is the fingerprint of a positional isomer: all the right pieces, assembled wrong.</p>
-  <p>The third diagnostic measured how much the model already knows but ranks low. For 95.8% of molecules a correct answer is somewhere in the top twenty candidates, and the curve was still rising at twenty. So the knowledge is mostly there. The bottleneck is ranking, not capability.</p>
+      <line class="ln" x1="368" y1="80" x2="610" y2="80" marker-end="url(#a4)"/>
+      <text class="tm" x="392" y="74">embedded batch &rarr;</text>
+      <line class="ln" x1="610" y1="120" x2="370" y2="120" marker-end="url(#a4b)" style="stroke:#7ee0a9"/>
+      <text class="ta" x="392" y="140">&larr; grad to embeddings</text>
+    </svg>
+    <figcaption>The stack never leaves the GPU; only the embedded batch goes up and the embedding gradients come back. A consequence: the GPU runs at 35 to 40% utilization, because the host side embedding work and the transfers, not the matmuls, are the bottleneck at this model size.</figcaption>
+  </figure>
 
-  <h2>Would reinforcement learning help, and why I stopped</h2>
-  <p>That last finding is exactly the setup where reinforcement learning, or its simpler cousin rejection sampling, tends to help: the model can produce the right answer, it just does not rank it first, and there is a perfect verifier to score attempts. You sample, keep the verified answers, and fine tune on them so the model learns to put the good answer first.</p>
-  <p>I thought hard about doing it and decided against it for now, for an honest reason. The verifier rerank already gets the deployed model to 95.8%, which is essentially the same ceiling the model's own candidates set. Reinforcement learning would mostly convert that into a faster single pass model, not a more accurate one, and the project already has ground truth labels, which makes the technique less of a slam dunk than the raw headroom number suggests. The genuine next gain in accuracy lives in the constitutional errors, and fixing those means giving the model a better view of the molecular graph, which is a real research build rather than a quick win.</p>
-  <p>So this is a good place to stop. The model names molecules correctly 95.8% of the time, it runs on a laptop, the demo lets you try either direction, and I know exactly where the remaining five percent goes.</p>
+  <p>One portability note from the final run. The kernels build against the GPU's compute capability, and when the GPU is newer than the toolkit they fall back to the newest virtual architecture the toolkit knows and emit PTX, which the driver compiles at load time. That is how the final model trained on a Blackwell card (compute capability 12.0) using a CUDA 12.4 toolkit that has never heard of it.</p>
 
-  <h2>The numbers, in one place</h2>
+  <h3>The run that blew up</h3>
+  <p>The first scaled run trained well to a loss of 0.37, then a gradient spike near peak learning rate drove the loss to NaN at step 19,000, and since the trainer overwrote a single checkpoint file the NaN weights erased the good ones. There is no gradient clipping in the device loop, and a real clip needs a reduction kernel that does not exist yet. The shipped fix is cheaper: skip the optimizer step whenever the loss is not finite, only checkpoint finite states, keep numbered snapshots, and lower the peak learning rate. The next run went the full 120k steps with zero NaN events and zero skipped steps.</p>
+
+  <h2>Decoding, and a verifier you get for free</h2>
+  <p>OPSIN turns an IUPAC name into a molecule. The input to the model is a molecule. So the model can check its own output with no labels: generate a name, parse it back, canonicalize both sides with RDKit, ask if they are the same molecule. Instead of trusting the top guess, the decoder runs a beam, and the rerank keeps the first candidate that round trips to the input.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 800 170" role="img" aria-label="Beam plus verifier rerank">
+      <defs><marker id="a5" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6ea8fe"/></marker></defs>
+      <rect class="b" x="8" y="64" width="120" height="40" rx="6"/><text class="t" x="20" y="84">SMILES in</text>
+      <rect class="bn" x="160" y="64" width="130" height="40" rx="6"/><text class="t" x="172" y="84">beam decode</text><text class="tm" x="172" y="98">width 20</text>
+      <line class="ln" x1="128" y1="84" x2="158" y2="84" marker-end="url(#a5)"/>
+      <rect class="b" x="322" y="20" width="200" height="26" rx="5"/><text class="tm" x="332" y="38">cand 1  &rarr; OPSIN &rarr; molecule</text>
+      <rect class="b" x="322" y="54" width="200" height="26" rx="5"/><text class="tm" x="332" y="72">cand 2  &rarr; OPSIN &rarr; molecule</text>
+      <rect class="b" x="322" y="88" width="200" height="26" rx="5"/><text class="tm" x="332" y="106">...</text>
+      <rect class="b" x="322" y="122" width="200" height="26" rx="5"/><text class="tm" x="332" y="140">cand 20 &rarr; OPSIN &rarr; molecule</text>
+      <line class="ln" x1="290" y1="80" x2="320" y2="40" marker-end="url(#a5)"/>
+      <line class="ln" x1="290" y1="84" x2="320" y2="100" marker-end="url(#a5)"/>
+      <rect class="ba" x="560" y="44" width="110" height="56" rx="6"/><text class="t" x="572" y="68">matches</text><text class="t" x="572" y="86">the input?</text>
+      <line class="ln" x1="522" y1="67" x2="558" y2="67" marker-end="url(#a5)"/>
+      <rect class="b" x="700" y="50" width="92" height="44" rx="6"/><text class="ta" x="712" y="70">verified</text><text class="tm" x="712" y="86">name out</text>
+      <line class="ln" x1="670" y1="72" x2="698" y2="72" marker-end="url(#a5)"/>
+    </svg>
+    <figcaption>Beam search proposes candidates; each is parsed back through OPSIN and compared to the input molecule; the first that matches is returned (falling back to the best parseable name, then the top beam).</figcaption>
+  </figure>
+
+  <p>Beam scores are length normalized as <code>sum(log p) / len^0.6</code> so the search does not favor short names. The accuracy this buys, on 2,000 held out molecules:</p>
   <table>
     <thead><tr><th>Decoding</th><th>First model</th><th>Final model</th></tr></thead>
     <tbody>
@@ -96,7 +275,10 @@
       <tr><td>Valid name rate</td><td>85.6%</td><td>97.9%</td></tr>
     </tbody>
   </table>
-  <p>Everything here is exact structure match on two thousand held out molecules, parsed back through OPSIN and compared as canonical structures, with the same evaluation seeds across every row.</p>
+
+  <h2>Where the remaining errors are</h2>
+  <p>Three diagnostics, not guesses. The first measured stereochemistry by stripping it from both prediction and target and rechecking. It is a non-issue: when the model gets a molecule's skeleton right it gets the stereochemistry right too, 887 times out of 896, so pure stereo mistakes are under one point of the gap. The real errors are constitutional, right atoms in the wrong arrangement, and about half of them share the exact molecular formula of the target, which is the signature of a positional isomer.</p>
+  <p>The second measured headroom: a correct answer is in the top 20 candidates for 95.8% of molecules, and the curve is still climbing at 20. The model usually knows the answer and ranks it just below first, which is exactly why the verifier rerank works, and why the deployed accuracy already sits at that ceiling. Pushing past it means improving the model's view of the molecular graph rather than its decoding, which is a research build, so this is where the project stops.</p>
 
   <hr />
   <a class="back" href="/">&larr; back to the demo</a>
