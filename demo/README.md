@@ -1,65 +1,64 @@
 # ChemKernel demo
 
-A tiny local web app to play with the trained model in both directions:
+A small local web app to try the trained model in both directions:
 
-- **SMILES → IUPAC name** — runs *your trained transformer* (greedy decode, on CPU).
-- **IUPAC name → SMILES** — runs OPSIN (`py2opsin`), the same reference parser the eval uses for scoring.
+- **SMILES to IUPAC name** runs the trained transformer. When OPSIN is available it beam decodes and keeps the candidate whose name parses back to your input molecule, so the answer is verified. Without OPSIN it falls back to a single greedy pass.
+- **IUPAC name to SMILES** runs OPSIN, the same parser the eval uses for scoring, so you can check either direction.
 
-No web framework — just Python's stdlib `http.server` plus the model's own deps.
+No web framework. It is Python's standard library `http.server` plus the model's own dependencies.
 
 ```
 demo/
-  server.py          # loads the checkpoint once, serves 2 JSON endpoints + the page
-  static/index.html  # single-page UI
+  server.py           loads the checkpoint once, serves the JSON endpoints and the pages
+  static/index.html   the two-box UI
+  static/writeup.html the technical writeup, linked from the main page
 ```
 
 ## Run it
 
-From the repo root, with the project venv:
+From the repo root, pointing at the trained checkpoint and its tokenizer:
 
 ```bash
+PATH="/opt/homebrew/opt/openjdk/bin:$PATH" \
+PICOCHEM_CKPT="$(pwd)/runs/device_bpe_d512_v2/ckpt_latest.npz" \
+PICOCHEM_IUPAC_BPE="$(pwd)/data/iupac_bpe_v2.json" \
 .venv/bin/python demo/server.py
-# then open http://localhost:8000
+# open http://localhost:8000   (writeup at http://localhost:8000/writeup)
 ```
 
-That's it for the **SMILES → IUPAC** direction (only needs `numpy` + the model).
+The SMILES to IUPAC direction only needs NumPy and the model. The reverse direction and the verified reranking need OPSIN, which needs Java.
 
 ## Prerequisites
 
-The server needs three things on disk. Two of them are **gitignored** (too large
-for the repo), so on a fresh clone you regenerate them — it's fully deterministic:
+The server needs a checkpoint, the matching IUPAC tokenizer, and the SMILES vocab. These are gitignored because they are large, and they regenerate deterministically. The tokenizer has to be the one the checkpoint was trained with, since the token ids index the trained embeddings.
 
 | Need | Path | How to get it |
-|------|------|---------------|
-| Trained checkpoint | `runs/device_full/ckpt_latest.npz` | produced by training (`scripts/train_device.py`) |
-| Vocab files | `data/smiles_vocab.json`, `data/iupac_vocab.json` | `python scripts/download_data.py && python scripts/build_vocab.py` |
-| Java (for IUPAC→SMILES only) | system | `brew install openjdk` (macOS) + `uv pip install py2opsin` |
+|---|---|---|
+| Checkpoint | `runs/device_bpe_d512_v2/ckpt_latest.npz` | produced by `scripts/run_retrain.sh` |
+| IUPAC tokenizer | `data/iupac_bpe_v2.json` | the byte pair tokenizer built during the same run (`scripts/build_bpe.py`) |
+| SMILES vocab | `data/smiles_vocab.json` | `python scripts/download_data.py && python scripts/build_vocab.py` (comes out to 341 tokens) |
+| Java (OPSIN) | system | `brew install openjdk` on macOS, plus `uv pip install py2opsin` |
 
-The vocab build streams the same fixed PubChem dataset and sorts tokens, so it
-reproduces the exact vocab the model trained on — you can confirm the sizes come
-out to **341** (SMILES) and **11902** (IUPAC), matching the checkpoint's config.
-
-The IUPAC→SMILES card is optional: if Java/`py2opsin` aren't present, the
-SMILES→IUPAC direction still works and the page shows OPSIN as unavailable.
-The server auto-adds a Homebrew JDK (`/opt/homebrew/opt/openjdk/bin`) to `PATH`,
-so you usually don't need to configure Java yourself.
+`run_retrain.sh` produces a checkpoint and a tokenizer that match each other, so the simplest path on a fresh machine is to run that and point the server at its outputs. The server auto-adds a Homebrew JDK (`/opt/homebrew/opt/openjdk/bin`) to `PATH`, so on a Mac you usually do not need to configure Java yourself.
 
 ## Config
 
-Environment variables (all optional):
+Environment variables, all optional:
 
-- `PORT` — listen port (default `8000`)
-- `PICOCHEM_CKPT` — checkpoint path (default `runs/device_full/ckpt_latest.npz`)
+- `PORT` listen port, default `8000`
+- `PICOCHEM_CKPT` checkpoint path
+- `PICOCHEM_IUPAC_BPE` byte pair tokenizer path; when unset the server uses the legacy word vocab at `data/iupac_vocab.json`
+- `PICOCHEM_BEAM` beam width for the verified SMILES to IUPAC direction, default `20`. Lower it (for example `10` or `5`) for faster responses at slightly lower accuracy.
 
 ## API
 
 ```bash
 curl -X POST localhost:8000/api/smiles2iupac -d '{"smiles":"c1ccc(O)cc1"}'
-# {"ok": true, "name": "phenol", "trace": "<parent>benzene</parent>...<name>phenol</name>"}
+# {"ok": true, "name": "phenol", "verified": true, "opsin_smiles": "Oc1ccccc1", "decode": "beam20+rerank", "trace": "..."}
 
 curl -X POST localhost:8000/api/iupac2smiles -d '{"name":"phenol"}'
 # {"ok": true, "smiles": "C1(=CC=CC=C1)O"}
 
 curl localhost:8000/api/health
-# {"ok": true, "step": 100000, "opsin": true}
+# {"ok": true, "step": 120000, "opsin": true}
 ```
