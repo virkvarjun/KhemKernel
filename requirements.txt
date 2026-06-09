@@ -7,6 +7,13 @@ tqdm==4.67.3
 matplotlib==3.10.9
 pytest==9.0.3
 
+# Evaluation: OPSIN parses generated IUPAC names back to molecules.
+# Needs a Java runtime on PATH (e.g. brew install openjdk).
+py2opsin==1.2.0
+
+# Build-time only: needed by scripts/build_cuda.sh to compile the kernels.
+pybind11
+
 # GPU dependencies (installed when ready for kernel phase)
 # numba
 # triton
