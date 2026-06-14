@@ -4,6 +4,8 @@ A chemistry translation model built from the ground up. It reads a molecule writ
 
 The current model gets the exact molecule right **95.8% of the time** on held out data when it is allowed to propose several candidates and check them against a parser. On a single greedy pass it is at **79.5%**. The whole thing trains on one GPU in about half a day and runs inference on a laptop CPU.
 
+**Writeup and blog: [virkvarjun.github.io/ChemKernel](https://virkvarjun.github.io/ChemKernel/)** has the full technical writeup with architecture diagrams. The interactive demo runs locally (see below), since it needs a Python backend for the model.
+
 ## What it does
 
 Input a SMILES string, get back the systematic name plus the trace that produced it.
@@ -153,4 +155,4 @@ tests/               gradient checks against finite differences
 
 ## Status
 
-Done. The model translates SMILES to IUPAC at 95.8% exact match with verifier reranking, the demo serves it locally, and the failure analysis says the remaining gap is positional chemistry that the model mostly already solves and ranks just below first. The write up of how it was built is on the demo site under the blog.
+Done. The model translates SMILES to IUPAC at 95.8% exact match with verifier reranking, the demo serves it locally, and the failure analysis says the remaining gap is positional chemistry that the model mostly already solves and ranks just below first. The full writeup, with architecture diagrams, is live at [virkvarjun.github.io/ChemKernel](https://virkvarjun.github.io/ChemKernel/) and deploys automatically from `picochem-site/` on every push.
