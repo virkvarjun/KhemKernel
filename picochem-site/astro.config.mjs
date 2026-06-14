@@ -5,7 +5,8 @@ import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 
 export default defineConfig({
-  site: 'https://picochem.example.com',
+  site: 'https://virkvarjun.github.io',
+  base: '/ChemKernel/',
   integrations: [mdx(), sitemap()],
   markdown: {
     shikiConfig: {

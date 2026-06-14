@@ -1,17 +1,19 @@
 ---
+const base = import.meta.env.BASE_URL;
 const { pathname } = Astro.url;
+const strip = (s: string) => (s.endsWith('/') && s.length > 1 ? s.slice(0, -1) : s);
 const isActive = (href: string) =>
-  href === '/' ? pathname === '/' : pathname.startsWith(href);
+  strip(href) === strip(base) ? strip(pathname) === strip(base) : pathname.startsWith(strip(href));
 ---
 
 <header id="header" class="site-header">
   <div class="site-header-inner">
     <div class="navbar-logo">
-      <a href="/" aria-label="picochem home">PICOCHEM</a>
+      <a href={base} aria-label="picochem home">PICOCHEM</a>
     </div>
     <nav class="top-nav" aria-label="Primary">
-      <a href="/" class={isActive('/') ? 'is-active' : ''}>Blog</a>
-      <a href="/about" class={isActive('/about') ? 'is-active' : ''}>About</a>
+      <a href={base} class={isActive(base) ? 'is-active' : ''}>Blog</a>
+      <a href={`${base}about`} class={isActive(`${base}about`) ? 'is-active' : ''}>About</a>
       <button
         type="button"
         id="theme-toggle"

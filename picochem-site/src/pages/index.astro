@@ -65,7 +65,7 @@ const fmt = (d: Date) =>
       <ul class="post-list">
         {posts.map((post) => (
           <li class="post-row">
-            <a class="post-link" href={`/blog/${post.id}/`}>
+            <a class="post-link" href={`${import.meta.env.BASE_URL}blog/${post.id}/`}>
               <time class="post-date" datetime={post.data.pubDate.toISOString()}>{fmt(post.data.pubDate)}</time>
               <span class="post-title">{post.data.title}</span>
               <span class="post-desc">{post.data.description}</span>

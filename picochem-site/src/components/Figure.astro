@@ -6,10 +6,15 @@ interface Props {
   wide?: boolean;
 }
 const { src, alt, caption, wide = false } = Astro.props;
+// Resolve site-absolute paths against the configured base (e.g. /ChemKernel)
+// so images work on a project page; leaves external and relative URLs alone.
+const resolved = src.startsWith('/')
+  ? import.meta.env.BASE_URL.replace(/\/$/, '') + src
+  : src;
 ---
 
 <figure class={wide ? 'figure figure-wide' : 'figure'}>
-  <img src={src} alt={alt} loading="lazy" />
+  <img src={resolved} alt={alt} loading="lazy" />
   {caption && <figcaption>{caption}</figcaption>}
 </figure>
 
