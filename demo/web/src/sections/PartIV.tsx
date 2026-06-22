@@ -98,7 +98,7 @@ export function PartIV() {
     <>
       <PartRule part="Part IV" title="Training the Model" />
 
-      <Section id="p4-1" title="The target and teacher forcing">
+      <Section id="p4-1" title="Teacher forcing">
         <p>
           The model is trained to predict the next token of the trace. During
           training we already know the whole correct trace, so we feed it the true
@@ -131,7 +131,7 @@ export function PartIV() {
         <CodeBlock path="picochem/ops.py · softmax_cross_entropy_forward" lang="python" code={pyDef(RAW.ops, "softmax_cross_entropy_forward")} />
       </Section>
 
-      <Section id="p4-3" title="Backpropagation by hand">
+      <Section id="p4-3" title="Backpropagation">
         <p>
           There is no autograd here. Reverse-mode automatic differentiation just
           means applying the chain rule backward through the layers: start from
@@ -150,7 +150,7 @@ export function PartIV() {
         <ForwardFlow reverse />
       </Section>
 
-      <Section id="p4-4" title="The optimizer and schedule">
+      <Section id="p4-4" title="Optimizer and schedule">
         <p>
           Parameters are updated with Adam, which keeps a running mean and
           variance of each parameter's gradient and bias-corrects them, so every
@@ -166,7 +166,7 @@ export function PartIV() {
         <CodeBlock path="picochem/kernels/cuda/adam.cu" lang="cuda" code={lines(RAW.adam, 8, 21)} />
       </Section>
 
-      <Section id="p4-5" title="The training loop and stability">
+      <Section id="p4-5" title="Stability">
         <p>
           The first scaled run trained beautifully down to a loss of 0.37, then a
           gradient spike near peak learning rate drove the loss to NaN around step

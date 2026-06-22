@@ -11,7 +11,7 @@ export function PartII() {
     <>
       <PartRule part="Part II" title="Tokenization and Encoding the Chemistry" />
 
-      <Section id="p2-1" title="SMILES and the regex tokenizer">
+      <Section id="p2-1" title="SMILES tokenizer">
         <p>
           Before the model sees anything, the text has to become a sequence of
           tokens (discrete pieces it has an id for). SMILES describes a molecule
@@ -76,7 +76,7 @@ export function PartII() {
         <CodeBlock path="picochem/bpe.py · _bpe" lang="python" code={pyDef(RAW.bpe, "_bpe")} />
       </Section>
 
-      <Section id="p2-3" title="Special tokens and losslessness">
+      <Section id="p2-3" title="Special tokens">
         <p>
           The trace has structure tags (<code>&lt;parent&gt;</code>,{" "}
           <code>&lt;name&gt;</code>, and so on) and a <code>;</code> separator

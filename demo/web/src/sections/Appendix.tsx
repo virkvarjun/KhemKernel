@@ -83,12 +83,12 @@ export function Appendix() {
     <>
       <PartRule part="Appendix" title="" />
 
-      <Section id="appendix-a" title="A. Architecture spec sheet">
+      <Section id="appendix-a" title="A. Spec sheet">
         <p>Every hyperparameter of the final model in one place.</p>
         <Two rows={SPEC} left="parameter" right="value" />
       </Section>
 
-      <Section id="appendix-b" title="B. The file map">
+      <Section id="appendix-b" title="B. File map">
         <p>
           Each NumPy reference piece and the CUDA kernel that implements it. The
           two share weights and a tokenizer; the kernels are validated against the
@@ -97,7 +97,7 @@ export function Appendix() {
         <Two rows={FILEMAP} left="NumPy reference" right="CUDA kernel" />
       </Section>
 
-      <Section id="appendix-c" title="C. Glossary of terms">
+      <Section id="appendix-c" title="C. Glossary">
         <Two rows={GLOSSARY} left="term" right="meaning" />
       </Section>
     </>

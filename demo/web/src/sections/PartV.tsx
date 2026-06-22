@@ -114,7 +114,7 @@ export function PartV() {
         </Aside>
       </Section>
 
-      <Section id="p5-3" title="Device resident training">
+      <Section id="p5-3" title="Device-resident training">
         <p>
           The win is keeping the whole transformer stack on the GPU across both
           the forward and backward pass, so a training step does not copy weights

@@ -48,7 +48,7 @@ export function PartI() {
         ))}
       </Section>
 
-      <Section id="p1-2" title="Why it is a translation problem">
+      <Section id="p1-2" title="A translation problem">
         <p>
           A SMILES string and an IUPAC name are two different surface forms of
           the same underlying object: the molecular graph. Neither is the
@@ -88,7 +88,7 @@ export function PartI() {
         </Figure>
       </Section>
 
-      <Section id="p1-3" title="The headline result up front">
+      <Section id="p1-3" title="The headline result">
         <p>
           On 2,000 held-out molecules, a single greedy pass gets the exact
           structure right 79.5% of the time. If we let the model propose a beam

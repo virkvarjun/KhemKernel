@@ -34,7 +34,7 @@ export function PartIII() {
     <>
       <PartRule part="Part III" title="The Transformer Architecture" />
 
-      <Section id="p3-1" title="From ids to vectors: embeddings">
+      <Section id="p3-1" title="Embeddings">
         <p>
           The model cannot do arithmetic on token ids directly, so each id is
           turned into a vector. An embedding table is a big matrix with one
@@ -54,7 +54,7 @@ export function PartIII() {
         <CodeBlock path="picochem/kernels/cuda/embedding.cu" lang="cuda" code={lines(RAW.embeddingCu, 8, 17)} />
       </Section>
 
-      <Section id="p3-2" title="The building block: the Linear layer">
+      <Section id="p3-2" title="Linear layer">
         <p>
           Almost everything else is built from one operation: a linear layer,{" "}
           <Tex tex="y = xW + b" />. Multiply the input by a weight matrix, add a
@@ -91,7 +91,7 @@ export function PartIII() {
         <CodeBlock path="picochem/kernels/cuda/matmul_tiled.cu" lang="cuda" code={lines(RAW.matmulTiled, 9, 35)} />
       </Section>
 
-      <Section id="p3-3" title="Attention I: scaled dot product attention">
+      <Section id="p3-3" title="Scaled dot-product attention">
         <p>
           Attention is how a position pulls in information from other positions.
           Every position emits a query, and every position offers a key and a
@@ -112,7 +112,7 @@ export function PartIII() {
         <AttentionHeatmap />
       </Section>
 
-      <Section id="p3-4" title="Attention II: multi head attention">
+      <Section id="p3-4" title="Multi-head attention">
         <p>
           One attention is a bottleneck: a position can only mix information one
           way. Multi-head attention runs several attentions in parallel, each on
@@ -131,7 +131,7 @@ export function PartIII() {
         </p>
       </Section>
 
-      <Section id="p3-5" title="Attention III: masking">
+      <Section id="p3-5" title="Masking">
         <p>
           Two things must be hidden from attention. The decoder must not look at
           future tokens (it would be cheating during training), and no position
@@ -149,7 +149,7 @@ export function PartIII() {
         <MaskingViz />
       </Section>
 
-      <Section id="p3-6" title="Self attention versus cross attention">
+      <Section id="p3-6" title="Self vs cross attention">
         <p>
           Self-attention and cross-attention are the same machinery wired two
           ways. In self-attention the queries, keys, and values all come from one
@@ -190,7 +190,7 @@ export function PartIII() {
         <CodeBlock path="picochem/attention.py · multihead_cross_attention_forward" lang="python" code={lines(RAW.attention, 116, 155)} />
       </Section>
 
-      <Section id="p3-7" title="Normalization: LayerNorm">
+      <Section id="p3-7" title="LayerNorm">
         <p>
           Deep stacks are easier to train if activations stay at a stable scale.
           LayerNorm takes one position's vector, subtracts its mean and divides by
@@ -208,7 +208,7 @@ export function PartIII() {
         <CodeBlock path="picochem/kernels/cuda/layer_norm.cu" lang="cuda" code={lines(RAW.layerNorm, 9, 31)} />
       </Section>
 
-      <Section id="p3-8" title="Residuals and the pre norm block">
+      <Section id="p3-8" title="Residuals and pre-norm">
         <p>
           Every sub-layer is wrapped the same way:{" "}
           <Tex tex="x + \text{sublayer}(\text{LN}(x))" />. The residual (the{" "}
@@ -239,7 +239,7 @@ export function PartIII() {
         <CodeBlock path="picochem/encoder.py · encoder_block_forward" lang="python" code={lines(RAW.encoder, 13, 39)} />
       </Section>
 
-      <Section id="p3-9" title="The feed forward network">
+      <Section id="p3-9" title="Feed-forward network">
         <p>
           Attention moves information between positions; the feed forward network
           (FFN) transforms each position on its own. It is a two-layer MLP that
@@ -271,7 +271,7 @@ export function PartIII() {
         <CodeBlock path="picochem/kernels/cuda/gelu.cu" lang="cuda" code={lines(RAW.gelu, 6, 16)} />
       </Section>
 
-      <Section id="p3-10" title="The encoder block">
+      <Section id="p3-10" title="Encoder block">
         <p>
           An encoder block is just two pre-norm sub-layers stacked: self-attention
           so the SMILES tokens can mix with each other, then an FFN. The molecule
@@ -281,7 +281,7 @@ export function PartIII() {
         <MoleculeExplorer mode="encoder" lockMode initial="phenol" />
       </Section>
 
-      <Section id="p3-11" title="The decoder block">
+      <Section id="p3-11" title="Decoder block">
         <p>
           A decoder block has three sub-layers: causal self-attention over the
           name written so far, then cross-attention into the encoder memory (this
@@ -293,7 +293,7 @@ export function PartIII() {
         <CodeBlock path="picochem/decoder.py · decoder_block_forward" lang="python" code={lines(RAW.decoder, 11, 51)} />
       </Section>
 
-      <Section id="p3-12" title="Stacking into encoder and decoder">
+      <Section id="p3-12" title="Stacking the layers">
         <p>
           The full model is three encoder blocks and three decoder blocks, all on
           a 512-dimensional residual stream with 8 heads of 64. The decoder
@@ -327,7 +327,7 @@ export function PartIII() {
         </Figure>
       </Section>
 
-      <Section id="p3-13" title="The output head and weight tying">
+      <Section id="p3-13" title="Output head and weight tying">
         <p>
           To turn the final decoder vectors into a guess, apply one last
           LayerNorm and project onto the vocabulary to get a logit per token. The
