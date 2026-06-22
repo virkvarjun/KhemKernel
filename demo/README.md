@@ -1,4 +1,4 @@
-# ChemKernel demo + interactive guide
+# KhemKernel demo + interactive guide
 
 The frontend is now an interactive technical guide (Vite + React + TypeScript,
 Computer Modern throughout) that explains the whole project from the chemistry

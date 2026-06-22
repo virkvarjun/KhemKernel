@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../../");
 
 // base "./" so the built site works both when served at root by demo/server.py
-// and when deployed under a subpath (e.g. GitHub Pages /ChemKernel/).
+// and when deployed under a subpath (e.g. GitHub Pages /KhemKernel/).
 export default defineConfig({
   base: "./",
   plugins: [react()],

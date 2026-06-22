@@ -23,7 +23,7 @@ export function App() {
       <Appendix />
 
       <footer className="foot">
-        ChemKernel is a from-scratch SMILES to IUPAC translator. This guide is a
+        KhemKernel is a from-scratch SMILES to IUPAC translator. This guide is a
         teaching artifact built on top of the project's live demo. The model, its
         gradients, and the GPU kernels are all hand written; the code shown here
         is pulled verbatim from the repository.

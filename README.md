@@ -1,10 +1,10 @@
-# ChemKernel
+# KhemKernel
 
-A chemistry translation model built from the ground up. It reads a molecule written as a SMILES string and writes back its IUPAC name, along with a short reasoning trace that names the parent scaffold, the functional groups, and the atom and ring counts it used to get there. The transformer, its gradients, the optimizer, and the GPU kernels underneath are all hand written. The Python package is called `picochem`; the repository and the demo carry the ChemKernel name.
+A chemistry translation model built from the ground up. It reads a molecule written as a SMILES string and writes back its IUPAC name, along with a short reasoning trace that names the parent scaffold, the functional groups, and the atom and ring counts it used to get there. The transformer, its gradients, the optimizer, and the GPU kernels underneath are all hand written. The Python package is called `picochem`; the repository and the demo carry the KhemKernel name.
 
 The current model gets the exact molecule right **95.8% of the time** on held out data when it is allowed to propose several candidates and check them against a parser. On a single greedy pass it is at **79.5%**. The whole thing trains on one GPU in about half a day and runs inference on a laptop CPU.
 
-**Writeup and blog: [virkvarjun.github.io/ChemKernel](https://virkvarjun.github.io/ChemKernel/)** has the full technical writeup with architecture diagrams. The interactive demo runs locally (see below), since it needs a Python backend for the model.
+**Writeup and blog: [virkvarjun.github.io/KhemKernel](https://virkvarjun.github.io/KhemKernel/)** has the full technical writeup with architecture diagrams. The interactive demo runs locally (see below), since it needs a Python backend for the model.
 
 ## What it does
 
@@ -155,4 +155,4 @@ tests/               gradient checks against finite differences
 
 ## Status
 
-Done. The model translates SMILES to IUPAC at 95.8% exact match with verifier reranking, the demo serves it locally, and the failure analysis says the remaining gap is positional chemistry that the model mostly already solves and ranks just below first. The full writeup, with architecture diagrams, is live at [virkvarjun.github.io/ChemKernel](https://virkvarjun.github.io/ChemKernel/) and deploys automatically from `picochem-site/` on every push.
+Done. The model translates SMILES to IUPAC at 95.8% exact match with verifier reranking, the demo serves it locally, and the failure analysis says the remaining gap is positional chemistry that the model mostly already solves and ranks just below first. The full writeup, with architecture diagrams, is live at [virkvarjun.github.io/KhemKernel](https://virkvarjun.github.io/KhemKernel/) and deploys automatically from `picochem-site/` on every push.

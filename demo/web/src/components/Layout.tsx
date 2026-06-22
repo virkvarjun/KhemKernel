@@ -43,10 +43,10 @@ export function Layout({ children }: { children: ReactNode }) {
           {tocOpen ? "✕" : "☰"} contents
         </button>
         <a className="brand" href="#top" onClick={() => navigate("top")}>
-          Chem<span className="k">Kernel</span>
+          Khem<span className="k">Kernel</span>
         </a>
         <span className="spacer" />
-        <a className="iconbtn" href="https://github.com/virkvarjun/ChemKernel">
+        <a className="iconbtn" href="https://github.com/virkvarjun/KhemKernel">
           source
         </a>
         <button

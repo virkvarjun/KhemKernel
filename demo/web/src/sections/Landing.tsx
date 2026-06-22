@@ -6,7 +6,7 @@ export function Landing() {
   return (
     <section id="top">
       <div className="col">
-        <h1>ChemKernel</h1>
+        <h1>KhemKernel</h1>
         <p style={{ fontSize: "1.12rem", color: "var(--ink-soft)" }}>
           A from-scratch transformer that reads a molecule written as a SMILES
           string and writes its systematic IUPAC name, with a short reasoning

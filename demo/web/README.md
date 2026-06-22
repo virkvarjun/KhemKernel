@@ -1,6 +1,6 @@
-# ChemKernel interactive guide
+# KhemKernel interactive guide
 
-A single-page interactive guide to the ChemKernel project, from the chemistry
+A single-page interactive guide to the KhemKernel project, from the chemistry
 down to the hand-written CUDA kernels. Vite + React + TypeScript, Computer
 Modern throughout, KaTeX for math, Prism for code. Every code snippet is pulled
 verbatim from the real repository source (`?raw` imports), and the SMILES

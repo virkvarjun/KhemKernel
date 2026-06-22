@@ -99,7 +99,7 @@ export function PartVII() {
           both are future work, not part of the shipped path.
         </p>
         <Aside label="where this sits">
-          ChemKernel is not state of the art on the chemistry, and it is not meant
+          KhemKernel is not state of the art on the chemistry, and it is not meant
           to be. STOUT is established prior art and is larger. The point of the
           project is everything underneath: a transformer, its hand-derived
           gradients, the optimizer, and the GPU kernels, all written by hand and

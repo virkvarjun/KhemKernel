@@ -1,5 +1,5 @@
 ---
-title: "How ChemKernel works"
+title: "How KhemKernel works"
 description: "A SMILES to IUPAC translator built from hand-written NumPy gradients up through CUDA kernels, a byte pair tokenizer, and a verifier that lets the model grade its own answers. Architecture, kernels, training, decoding, and where the errors actually are."
 pubDate: 2026-06-08
 author: "Arjun Virk"
@@ -7,7 +7,7 @@ author: "Arjun Virk"
 
 import Figure from '../../components/Figure.astro';
 
-Give ChemKernel a molecule as a SMILES string and it returns the molecule's systematic IUPAC name. `CC(=O)Oc1ccccc1C(=O)O` comes back as `2-acetyloxybenzoic acid`, which is aspirin. On held out molecules it gets the exact structure right 95.8% of the time when it is allowed to propose several names and check them. The model is a transformer written by hand, the GPU kernels under it are written by hand, and the last push in accuracy comes from the fact that the answers are checkable.
+Give KhemKernel a molecule as a SMILES string and it returns the molecule's systematic IUPAC name. `CC(=O)Oc1ccccc1C(=O)O` comes back as `2-acetyloxybenzoic acid`, which is aspirin. On held out molecules it gets the exact structure right 95.8% of the time when it is allowed to propose several names and check them. The model is a transformer written by hand, the GPU kernels under it are written by hand, and the last push in accuracy comes from the fact that the answers are checkable.
 
 ## The pipeline, end to end
 

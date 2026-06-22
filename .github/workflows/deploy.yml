@@ -1,8 +1,8 @@
 name: Deploy site to GitHub Pages
 
 # Publishes two things to one GitHub Pages site:
-#   - the Astro writeup site (picochem-site/)  -> https://virkvarjun.github.io/ChemKernel/
-#   - the interactive guide (demo/web/)        -> https://virkvarjun.github.io/ChemKernel/guide/
+#   - the Astro writeup site (picochem-site/)  -> https://virkvarjun.github.io/KhemKernel/
+#   - the interactive guide (demo/web/)        -> https://virkvarjun.github.io/KhemKernel/guide/
 # The guide's live-inference panel needs the Python backend, so on Pages it
 # falls back to the precomputed examples; everything else is fully static.
 
@@ -37,19 +37,19 @@ jobs:
         with:
           node-version: 20
 
-      # Astro writeup site -> picochem-site/dist (base /ChemKernel/)
+      # Astro writeup site -> picochem-site/dist (base /KhemKernel/)
       - name: Build Astro site
         working-directory: picochem-site
         run: |
           npm ci
           npm run build
 
-      # Interactive guide -> demo/web/dist (base /ChemKernel/guide/)
+      # Interactive guide -> demo/web/dist (base /KhemKernel/guide/)
       - name: Build interactive guide
         working-directory: demo/web
         run: |
           npm ci
-          npm run build -- --base=/ChemKernel/guide/
+          npm run build -- --base=/KhemKernel/guide/
 
       # Mount the guide under the Astro site at /guide
       - name: Combine builds
