@@ -1,0 +1,103 @@
+/* Prism theme mapped onto the guide palette. Computer Modern Typewriter. */
+.codeblock {
+  margin: 1.3rem 0;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.codeblock .cap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.7rem;
+  border-bottom: 1px solid var(--panel-line);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+  background: var(--panel);
+}
+.codeblock .cap .path {
+  color: var(--accent-ink);
+}
+.codeblock .cap .spacer {
+  flex: 1;
+}
+.codeblock .copy {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  background: transparent;
+  border: 1px solid var(--panel-line);
+  color: var(--ink-faint);
+  border-radius: 6px;
+  padding: 0.12rem 0.45rem;
+  cursor: pointer;
+}
+.codeblock .copy:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.codeblock pre {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  tab-size: 4;
+}
+.codeblock code {
+  font-family: var(--mono);
+  color: var(--ink);
+  white-space: pre;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.token.punctuation {
+  color: var(--ink-soft);
+}
+.token.keyword,
+.token.boolean,
+.token.atrule {
+  color: var(--tok-aromatic);
+}
+.token.string,
+.token.char,
+.token.attr-value {
+  color: var(--good);
+}
+.token.number,
+.token.constant {
+  color: var(--tok-ring);
+}
+.token.function,
+.token.class-name {
+  color: var(--chem);
+}
+.token.operator,
+.token.entity {
+  color: var(--tok-bond);
+}
+.token.builtin,
+.token.property,
+.token.attr-name,
+.token.symbol {
+  color: var(--tok-atom);
+}
+.token.decorator,
+.token.annotation {
+  color: var(--warn);
+}
+.token.important,
+.token.bold {
+  font-weight: 700;
+}
+.token.italic {
+  font-style: italic;
+}
