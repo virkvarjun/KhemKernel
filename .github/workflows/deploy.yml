@@ -1,13 +1,17 @@
 name: Deploy site to GitHub Pages
 
-# Builds the Astro site in picochem-site/ and publishes it to GitHub Pages.
-# Live at https://virkvarjun.github.io/ChemKernel/
+# Publishes two things to one GitHub Pages site:
+#   - the Astro writeup site (picochem-site/)  -> https://virkvarjun.github.io/ChemKernel/
+#   - the interactive guide (demo/web/)        -> https://virkvarjun.github.io/ChemKernel/guide/
+# The guide's live-inference panel needs the Python backend, so on Pages it
+# falls back to the precomputed examples; everything else is fully static.
 
 on:
   push:
     branches: [main]
     paths:
       - 'picochem-site/**'
+      - 'demo/web/**'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
@@ -27,10 +31,36 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Build with Astro
-        uses: withastro/action@v3
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          path: picochem-site
+          node-version: 20
+
+      # Astro writeup site -> picochem-site/dist (base /ChemKernel/)
+      - name: Build Astro site
+        working-directory: picochem-site
+        run: |
+          npm ci
+          npm run build
+
+      # Interactive guide -> demo/web/dist (base /ChemKernel/guide/)
+      - name: Build interactive guide
+        working-directory: demo/web
+        run: |
+          npm ci
+          npm run build -- --base=/ChemKernel/guide/
+
+      # Mount the guide under the Astro site at /guide
+      - name: Combine builds
+        run: |
+          mkdir -p picochem-site/dist/guide
+          cp -R demo/web/dist/. picochem-site/dist/guide/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: picochem-site/dist
 
   deploy:
     needs: build
