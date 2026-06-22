@@ -1,32 +1,45 @@
-# ChemKernel demo
+# ChemKernel demo + interactive guide
 
-A small local web app to try the trained model in both directions:
+The frontend is now an interactive technical guide (Vite + React + TypeScript,
+Computer Modern throughout) that explains the whole project from the chemistry
+down to the CUDA kernels. It embeds the original live demo: a two-box panel that
+runs the trained model in both directions.
 
 - **SMILES to IUPAC name** runs the trained transformer. When OPSIN is available it beam decodes and keeps the candidate whose name parses back to your input molecule, so the answer is verified. Without OPSIN it falls back to a single greedy pass.
 - **IUPAC name to SMILES** runs OPSIN, the same parser the eval uses for scoring, so you can check either direction.
 
-No web framework. It is Python's standard library `http.server` plus the model's own dependencies.
+The server has no web framework. It is Python's standard library `http.server`
+plus the model's own dependencies, and it serves the built guide as static files.
 
 ```
 demo/
-  server.py           loads the checkpoint once, serves the JSON endpoints and the pages
-  static/index.html   the two-box UI
-  static/writeup.html the technical writeup, linked from the main page
+  server.py        loads the checkpoint once, serves the JSON API + the built guide
+  web/             the interactive guide (Vite + React); see web/README.md
+  web/dist/        the built static site server.py serves (produced by `npm run build`)
 ```
 
 ## Run it
 
-From the repo root, pointing at the trained checkpoint and its tokenizer:
+First build the guide once (Node 18+), then start the server from the repo root:
 
 ```bash
+cd demo/web && npm install && npm run build && cd ../..
+
 PATH="/opt/homebrew/opt/openjdk/bin:$PATH" \
 PICOCHEM_CKPT="$(pwd)/runs/device_bpe_d512_v2/ckpt_latest.npz" \
 PICOCHEM_IUPAC_BPE="$(pwd)/data/iupac_bpe_v2.json" \
 .venv/bin/python demo/server.py
-# open http://localhost:8000   (writeup at http://localhost:8000/writeup)
+# open http://localhost:8000
 ```
 
-The SMILES to IUPAC direction only needs NumPy and the model. The reverse direction and the verified reranking need OPSIN, which needs Java.
+The server now defaults `PICOCHEM_CKPT` to the BPE d512 checkpoint and
+`PICOCHEM_IUPAC_BPE` to `data/iupac_bpe_v2.json` when those files exist, so on a
+normal checkout the env vars above are optional. The SMILES to IUPAC direction
+only needs NumPy and the model; the reverse direction and the verified reranking
+need OPSIN, which needs Java.
+
+For guide development with hot reload (and live inference proxied to the Python
+backend), see `demo/web/README.md`.
 
 ## Prerequisites
 
