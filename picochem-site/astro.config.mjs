@@ -6,7 +6,7 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 
 export default defineConfig({
   site: 'https://virkvarjun.github.io',
-  base: '/KhemKernel/',
+  base: '/KhemKernel/writeup/',
   integrations: [mdx(), sitemap()],
   markdown: {
     shikiConfig: {

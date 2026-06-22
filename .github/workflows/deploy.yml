@@ -1,8 +1,9 @@
 name: Deploy site to GitHub Pages
 
-# Publishes two things to one GitHub Pages site:
-#   - the Astro writeup site (picochem-site/)  -> https://virkvarjun.github.io/KhemKernel/
-#   - the interactive guide (demo/web/)        -> https://virkvarjun.github.io/KhemKernel/guide/
+# Publishes the interactive guide as the main site, with the Astro writeup
+# preserved under /writeup:
+#   - interactive guide (demo/web/)      -> https://virkvarjun.github.io/KhemKernel/
+#   - Astro writeup site (picochem-site/) -> https://virkvarjun.github.io/KhemKernel/writeup/
 # The guide's live-inference panel needs the Python backend, so on Pages it
 # falls back to the precomputed examples; everything else is fully static.
 
@@ -37,30 +38,33 @@ jobs:
         with:
           node-version: 20
 
-      # Astro writeup site -> picochem-site/dist (base /KhemKernel/)
+      # Interactive guide -> demo/web/dist (served at the root /KhemKernel/)
+      - name: Build interactive guide
+        working-directory: demo/web
+        run: |
+          npm ci
+          npm run build -- --base=/KhemKernel/
+
+      # Astro writeup site -> picochem-site/dist (served at /KhemKernel/writeup/)
       - name: Build Astro site
         working-directory: picochem-site
         run: |
           npm ci
           npm run build
 
-      # Interactive guide -> demo/web/dist (base /KhemKernel/guide/)
-      - name: Build interactive guide
-        working-directory: demo/web
-        run: |
-          npm ci
-          npm run build -- --base=/KhemKernel/guide/
-
-      # Mount the guide under the Astro site at /guide
+      # Assemble: guide at the root, writeup under /writeup
       - name: Combine builds
         run: |
-          mkdir -p picochem-site/dist/guide
-          cp -R demo/web/dist/. picochem-site/dist/guide/
+          rm -rf _site
+          mkdir -p _site
+          cp -R demo/web/dist/. _site/
+          mkdir -p _site/writeup
+          cp -R picochem-site/dist/. _site/writeup/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: picochem-site/dist
+          path: _site
 
   deploy:
     needs: build

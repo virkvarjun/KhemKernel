@@ -4,7 +4,7 @@ A chemistry translation model built from the ground up. It reads a molecule writ
 
 The current model gets the exact molecule right **95.8% of the time** on held out data when it is allowed to propose several candidates and check them against a parser. On a single greedy pass it is at **79.5%**. The whole thing trains on one GPU in about half a day and runs inference on a laptop CPU.
 
-**Writeup and blog: [virkvarjun.github.io/KhemKernel](https://virkvarjun.github.io/KhemKernel/)** has the full technical writeup with architecture diagrams. The interactive demo runs locally (see below), since it needs a Python backend for the model.
+**Interactive guide: [virkvarjun.github.io/KhemKernel](https://virkvarjun.github.io/KhemKernel/)** walks through the whole project from the chemistry down to the CUDA kernels, with live widgets and the real source. The older Astro writeup lives at [/KhemKernel/writeup/](https://virkvarjun.github.io/KhemKernel/writeup/). Live model inference in the guide runs locally (see below), since it needs a Python backend.
 
 ## What it does
 
@@ -155,4 +155,4 @@ tests/               gradient checks against finite differences
 
 ## Status
 
-Done. The model translates SMILES to IUPAC at 95.8% exact match with verifier reranking, the demo serves it locally, and the failure analysis says the remaining gap is positional chemistry that the model mostly already solves and ranks just below first. The full writeup, with architecture diagrams, is live at [virkvarjun.github.io/KhemKernel](https://virkvarjun.github.io/KhemKernel/) and deploys automatically from `picochem-site/` on every push.
+Done. The model translates SMILES to IUPAC at 95.8% exact match with verifier reranking, the demo serves it locally, and the failure analysis says the remaining gap is positional chemistry that the model mostly already solves and ranks just below first. The interactive guide is live at [virkvarjun.github.io/KhemKernel](https://virkvarjun.github.io/KhemKernel/) (built from `demo/web/`), with the Astro writeup at `/KhemKernel/writeup/` (from `picochem-site/`); both deploy automatically on every push.
