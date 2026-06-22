@@ -1,0 +1,54 @@
+/* Computer Modern web fonts (vendored, no network at view time).
+   Body + headings use CMU Serif; code + tokens use CMU Typewriter Text.
+   The "500" weight files are Computer Modern's regular weight, mapped to 400. */
+
+@font-face {
+  font-family: "CMU Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/cmu-serif-500-roman.woff2") format("woff2");
+}
+@font-face {
+  font-family: "CMU Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/cmu-serif-500-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "CMU Serif";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./fonts/cmu-serif-700-roman.woff2") format("woff2");
+}
+@font-face {
+  font-family: "CMU Serif";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./fonts/cmu-serif-700-italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "CMU Typewriter Text";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/cmu-typewriter-text-500-roman.woff2") format("woff2");
+}
+@font-face {
+  font-family: "CMU Typewriter Text";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/cmu-typewriter-text-500-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "CMU Typewriter Text";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./fonts/cmu-typewriter-text-700-roman.woff2") format("woff2");
+}
