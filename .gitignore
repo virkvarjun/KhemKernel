@@ -28,12 +28,19 @@ __pycache__/
 # Site (Astro) — allow its config/manifest files
 !picochem-site/**/*.json
 
+# Interactive guide (Vite app) — allow its config + precomputed data json
+!demo/web/**/*.json
+
 # macOS
 .DS_Store
 
 # IDEs
 .vscode/
 .idea/
+
+# Claude Code local/personal config (not shared)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # Experiment results
 results/*
