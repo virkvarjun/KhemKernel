@@ -56,6 +56,15 @@ const GLOSSARY: [string, string][] = [
   ["shared memory", "A small, fast scratchpad shared by the threads of one GPU block."],
   ["atomicAdd", "A GPU operation that adds to a memory location safely when many threads target the same address."],
   ["beam search", "Decoding that keeps the best few partial sequences at each step instead of committing to one."],
+  ["ablation", "Removing or changing one component (a target, a head, a layer) to measure how much it mattered."],
+  ["linear probe", "A linear classifier fit on frozen activations to test how decodable a property is from them."],
+  ["attention entropy", "How spread out an attention row is; low means a sharp, near-hard lookup, high means a diffuse average."],
+  ["soft alignment", "The attention weights read as a differentiable correspondence, here between name fragments and atoms."],
+  ["selective prediction", "Choosing to abstain when unsure, trading coverage for higher precision on the answers given."],
+  ["verifiable reward", "A reward computed by a checker (parser, compiler, proof checker) rather than a human label."],
+  ["compression ratio", "How much shorter a sequence gets after tokenization, e.g. characters per token."],
+  ["roofline", "A model of whether a kernel is limited by compute or by memory bandwidth."],
+  ["induction head", "An attention head that learns to copy or continue a pattern it has seen earlier in the sequence."],
 ];
 
 function Two({ rows, left, right }: { rows: [string, string][]; left: string; right: string }) {
