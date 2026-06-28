@@ -7,6 +7,8 @@ import { PartIV } from "./sections/PartIV";
 import { PartV } from "./sections/PartV";
 import { PartVI } from "./sections/PartVI";
 import { PartVII } from "./sections/PartVII";
+import { PartVIII } from "./sections/PartVIII";
+import { PartIX } from "./sections/PartIX";
 import { Appendix } from "./sections/Appendix";
 
 export function App() {
@@ -20,6 +22,8 @@ export function App() {
       <PartV />
       <PartVI />
       <PartVII />
+      <PartVIII />
+      <PartIX />
       <Appendix />
 
       <footer className="foot">

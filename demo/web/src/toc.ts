@@ -89,6 +89,29 @@ export const TOC: TocPart[] = [
     ],
   },
   {
+    part: "Part VIII",
+    title: "Going Deeper",
+    items: [
+      { id: "p8-1", label: "1. BPE internals" },
+      { id: "p8-2", label: "2. Tokenizer ablation" },
+      { id: "p8-3", label: "3. Scaling the scores" },
+      { id: "p8-4", label: "4. Attention as retrieval" },
+      { id: "p8-5", label: "5. Cross-attention alignment" },
+      { id: "p8-6", label: "6. Head specialization" },
+    ],
+  },
+  {
+    part: "Part IX",
+    title: "Analysis",
+    items: [
+      { id: "p9-1", label: "1. Does the trace help?" },
+      { id: "p9-2", label: "2. The verifier as a reward" },
+      { id: "p9-3", label: "3. Linear probes" },
+      { id: "p9-4", label: "4. Gradient checking" },
+      { id: "p9-5", label: "5. Where the GPU time goes" },
+    ],
+  },
+  {
     part: "Appendix",
     title: "",
     items: [
