@@ -54,6 +54,22 @@ The server has no web framework. It is Python's standard library `http.server` p
 
 See `demo/README.md` for the prerequisites and the regeneration steps on a fresh clone.
 
+## The interactive guide
+
+The full writeup is an interactive guide rather than a static page, live at [virkvarjun.github.io/KhemKernel](https://virkvarjun.github.io/KhemKernel/). It starts from the chemistry and works all the way down to the hand written CUDA kernels, with every code snippet pulled verbatim from this repository and the SMILES and byte pair tokenizers running live in the browser. It is organized as nine parts:
+
+1. **The problem.** Why naming molecules is a translation task, and the headline numbers.
+2. **Tokenization.** The SMILES regex, and the from scratch byte pair tokenizer for names, with a lab you can step through merge by merge.
+3. **The architecture.** The transformer built one piece at a time (embeddings, attention, masking, LayerNorm, the encoder and decoder blocks) with interactive diagrams.
+4. **Training.** The trace target, teacher forcing, the loss, hand derived backprop, the optimizer and schedule, and the NaN recovery story.
+5. **The GPU and CUDA kernels.** A catalog of all twelve kernels, from the tiled matmul and its transposed backward passes down to the batched attention matmul, the reduction kernels, the atomic embedding scatter, the head transpose, and the pybind11 bindings.
+6. **Inference and the verifier.** Greedy, beam search, and the free OPSIN round trip rerank.
+7. **Results.** The exact match metric, valid name rate, and the failure analysis.
+8. **Going deeper.** BPE internals and a tokenizer ablation, why scores are scaled by the square root of the head dimension, attention as soft retrieval, cross attention read as alignment, and head specialization.
+9. **Analysis.** Whether the reasoning trace helps, the verifier read as a label free reward with the rank of truth distribution, linear probes, the real gradient check numbers, and where the GPU time actually goes.
+
+The live "try the real model" panel needs the Python backend, so it works when you run `demo/server.py` locally and falls back to precomputed examples on the static site. The older Astro writeup is preserved at [/KhemKernel/writeup/](https://virkvarjun.github.io/KhemKernel/writeup/). Both build and deploy automatically from `main`.
+
 ## How it works
 
 The model is a standard encoder decoder transformer. The encoder reads the SMILES tokens, the decoder writes the trace one token at a time and cross attends to the encoder. The final model is 512 wide, 8 heads, 3 encoder layers and 3 decoder layers, with a 64 token decoder context. Learned positional embeddings, tied decoder input and output embeddings.
@@ -64,8 +80,8 @@ The interesting part is everything underneath that, which is written by hand rat
 
 There are two complete implementations of the same model that share weights and a tokenizer:
 
-1. A pure NumPy version. Every forward pass has a matching backward pass derived by hand and checked against finite differences in the test suite. This is the reference. It is slow but it is correct, and it is what the CUDA version is validated against.
-2. A CUDA version. Hand written kernels for matmul and its two backward passes, softmax, layer norm, GeLU, cross entropy, embedding, Adam, bias, and batched matmul, bound to Python through pybind11. The training loop keeps the transformer stack resident on the device and updates it in place, so a training step does not shuttle the weights back and forth across the bus on every iteration.
+1. A pure NumPy version. Every forward pass has a matching backward pass derived by hand and checked against finite differences in the test suite, where every op agrees with the numerical gradient to better than two parts in a billion. This is the reference. It is slow but it is correct, and it is what the CUDA version is validated against.
+2. A CUDA version. Hand written kernels for matmul and its two transposed backward passes, batched matmul for attention, softmax, layer norm, GeLU, cross entropy, the atomic embedding scatter, Adam, bias, the residual add, and the head split and merge transpose, bound to Python through pybind11 with a resident `DeviceTensor` type. The training loop keeps the transformer stack resident on the device and updates it in place, so a training step does not shuttle the weights back and forth across the bus on every iteration. The two implementations agree to about 1e-3, the rounding you expect from float32 against float64.
 
 The host keeps the embedding tables and does the gather and scatter on the CPU, while the device holds the stack. That split is deliberate. It also turns out to be the bottleneck: during training the GPU sits around 35 to 40% utilization because the host side embedding work and the transfers are the limiting factor, not the matmuls. For a model this size that is fine, and it means the choice of GPU barely matters.
 
@@ -148,8 +164,9 @@ picochem/kernels/    the CUDA extension and its source
 scripts/             download_data, build_vocab, build_bpe, generate_traces,
                      train (CPU), train_device (GPU), evaluate, run_retrain, build_cuda
 experiments/         failure_taxonomy, stereo_breakdown, beam_ceiling
-demo/                the local inference site (server.py, static/index.html)
-picochem-site/       the project write up site (Astro)
+demo/                local inference server (server.py) that serves the guide + the /api endpoints
+demo/web/            the interactive guide (Vite + React + TypeScript, Computer Modern)
+picochem-site/       the older Astro writeup, served at /KhemKernel/writeup/
 tests/               gradient checks against finite differences
 ```
 
