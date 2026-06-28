@@ -27,10 +27,25 @@ export function App() {
       <Appendix />
 
       <footer className="foot">
-        KhemKernel is a from-scratch SMILES to IUPAC translator. This guide is a
-        teaching artifact built on top of the project's live demo. The model, its
-        gradients, and the GPU kernels are all hand written; the code shown here
-        is pulled verbatim from the repository.
+        <p>
+          KhemKernel is a from-scratch SMILES to IUPAC translator. This guide is a
+          teaching artifact built on top of the project's live demo. The model, its
+          gradients, and the GPU kernels are all hand written; the code shown here
+          is pulled verbatim from the repository.
+        </p>
+        <p style={{ marginTop: "0.6rem" }}>
+          Want to go further? The full source, the NumPy reference, the CUDA
+          kernels, and the training scripts are all on GitHub:{" "}
+          <a
+            href="https://github.com/virkvarjun/KhemKernel"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontWeight: 700 }}
+          >
+            github.com/virkvarjun/KhemKernel
+          </a>
+          .
+        </p>
       </footer>
     </Layout>
   );
