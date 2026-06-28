@@ -8,7 +8,6 @@ import { lines } from "../lib/code";
 function GpuHierarchy() {
   return (
     <svg viewBox="0 0 560 210" width="100%" role="img" aria-label="GPU execution and memory hierarchy">
-      {/* grid -> blocks -> threads */}
       <rect x={14} y={14} width={300} height={182} rx={10} fill="var(--panel-2)" stroke="var(--panel-line)" />
       <text x={24} y={32} fontSize="11" fontFamily="var(--mono)" fill="var(--ink-faint)">grid</text>
       {[0, 1].map((bx) =>
@@ -23,8 +22,6 @@ function GpuHierarchy() {
         )),
       )}
       <text x={150} y={190} fontSize="9" fontFamily="var(--mono)" fill="var(--ink-faint)">threads (registers)</text>
-
-      {/* memory hierarchy column */}
       {[
         { y: 24, l: "registers", s: "per thread · fastest" },
         { y: 74, l: "shared memory", s: "per block · fast" },
@@ -59,6 +56,22 @@ function SpeedupBar() {
   );
 }
 
+// the kernel catalog, for the overview table
+const KERNELS: [string, string, string][] = [
+  ["matmul (naive, tiled)", "matmul_naive.cu, matmul_tiled.cu", "every linear layer"],
+  ["backward matmul (NT, TN)", "matmul_backward.cu", "linear layer gradients"],
+  ["batched matmul", "batched_matmul.cu", "attention QKᵀ and weights·V"],
+  ["softmax (+ backward)", "softmax.cu, softmax_backward.cu", "attention weights"],
+  ["layer norm (+ backward)", "layer_norm.cu, layer_norm_backward.cu", "every sub-layer"],
+  ["cross entropy", "cross_entropy.cu", "the training loss"],
+  ["GeLU (+ backward)", "gelu.cu", "the FFN nonlinearity"],
+  ["bias add / colsum / scale", "bias.cu", "linear bias + its gradient"],
+  ["vector add", "vector_add.cu", "residual connections"],
+  ["embedding scatter", "embedding.cu", "embedding gradients (atomics)"],
+  ["split / merge heads", "transpose.cu", "the head axis"],
+  ["Adam", "adam.cu", "the optimizer update"],
+];
+
 export function PartV() {
   return (
     <>
@@ -73,45 +86,193 @@ export function PartV() {
           shared memory (per block), global memory (the whole GPU, large but
           slow), and across the bus, the host CPU's RAM (slowest of all).
         </p>
-        <Figure caption="Threads in blocks in a grid, and the memory hierarchy they reach. The slow step is anything that crosses the bus to the host, which is what the design works to avoid.">
+        <Figure caption="Threads in blocks in a grid, and the memory hierarchy they reach. The slow step is anything that crosses the bus to the host.">
           <GpuHierarchy />
         </Figure>
         <p>
-          The single most important fact for performance is that copying data
-          between host and device is expensive. A kernel that spends more time
-          shuttling data than computing is wasted. That tax is what motivates both
-          the tiled matmul (reuse data in shared memory) and the device-resident
-          training loop (keep the model on the GPU).
+          Every operation in the transformer is one of a dozen hand-written
+          kernels. Each one is its own <code>.cu</code> file with a standalone
+          self-test that checks it against a plain CPU reference, and the same
+          kernels are exercised from Python against the NumPy model (Part IX). The
+          rest of this part walks the catalog, from the matmul that dominates the
+          FLOPs down to the one-line elementwise kernels.
+        </p>
+        <div className="table-scroll">
+          <table className="spec">
+            <thead><tr><th>kernel</th><th>file</th><th>used for</th></tr></thead>
+            <tbody>
+              {KERNELS.map((k) => (
+                <tr key={k[0]}><td>{k[0]}</td><td className="mono" style={{ fontSize: "0.8em" }}>{k[1]}</td><td>{k[2]}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      <Section id="p5-2" title="The tiled matmul">
+        <p>
+          Matrix multiply dominates the compute, so it is worth getting right. The
+          naive kernel assigns one thread per output element and has it walk the
+          full contraction dimension, reading both inputs straight from slow
+          global memory. It is correct and simple, but every input value is
+          re-read many times from global memory.
+        </p>
+        <CodeBlock path="picochem/kernels/cuda/matmul_naive.cu" lang="cuda" code={lines(RAW.matmulNaive, 6, 17)} />
+        <p>
+          The tiled kernel fixes the memory traffic. The output is cut into 16 by
+          16 tiles, one per block. The block cooperatively loads a 16 by 16 tile
+          of each input into shared memory, calls <code>__syncthreads()</code> so
+          every thread sees the full tile, multiply-accumulates from the fast copy,
+          synchronizes again before overwriting, and advances to the next tile
+          along the contraction axis. Each value loaded from global memory is now
+          reused 16 times, which raises the arithmetic intensity enough to make the
+          kernel compute-bound instead of bandwidth-bound.
+        </p>
+        <CodeBlock path="picochem/kernels/cuda/matmul_tiled.cu" lang="cuda" code={lines(RAW.matmulTiled, 9, 35)} />
+        <p>Step through the two barriers and the accumulate loop:</p>
+        <TiledMatmul />
+        <Aside label="honesty: exploratory kernels" warn>
+          There is also a Tensor Core matmul (<code>tensor_core.cu</code>, WMMA +
+          fp16) and a cuBLAS wrapper (<code>matmul_cublas.cu</code>). Both were
+          benchmarking experiments and are not in the shipped training path, which
+          uses these hand-written fp32 kernels. Part IX explains why faster matmul
+          would not have moved the wall clock much anyway.
+        </Aside>
+      </Section>
+
+      <Section id="p5-4" title="Backward matmuls">
+        <p>
+          A linear layer's backward pass needs two more matmuls, and both involve a
+          transpose: the gradient to the input is{" "}
+          <code>grad_y @ Wᵀ</code> and the gradient to the weights is{" "}
+          <code>xᵀ @ grad_y</code>. Rather than physically transpose a matrix
+          (an extra pass over memory), the transpose is baked into the indexing.
+          There are two variants: an NT kernel that treats the second operand as
+          transposed, and a TN kernel that treats the first operand as transposed.
+          Otherwise they are the same tiled scheme as the forward matmul.
+        </p>
+        <CodeBlock path="picochem/kernels/cuda/matmul_backward.cu" lang="cuda" code={lines(RAW.matmulBackward, 8, 36)} />
+        <p>
+          The only change from the forward kernel is which index gets multiplied by
+          the stride when loading the shared-memory tile. Reading a logical
+          transpose for free, just by swapping <code>row * K + k</code> for{" "}
+          <code>k * M + row</code>, is the whole trick.
         </p>
       </Section>
 
-      <Section id="p5-2" title="The kernels">
+      <Section id="p5-5" title="Batched matmul">
         <p>
-          The centerpiece is the tiled matmul. A naive matmul reloads operands
-          from slow global memory for every multiply. The tiled version has each
-          block cooperatively load a 16 by 16 tile of each input into shared
-          memory, synchronize, multiply-accumulate from the fast copy, synchronize
-          again, and move to the next tile. Watch the two barriers and the
-          accumulate loop:
+          Attention is many small matmuls, one per (batch, head): the scores are{" "}
+          <code>Q @ Kᵀ</code> per head, and the output is{" "}
+          <code>weights @ V</code> per head. Doing them as a batch keeps the GPU
+          busy. The batched kernel uses the grid's third dimension,{" "}
+          <code>blockIdx.z</code>, to pick the batch element, offsets the three
+          pointers by that element's stride, and then runs the same tiled inner
+          loop. It also carries <code>transA</code> and <code>transB</code> flags,
+          so the one kernel covers <code>Q @ Kᵀ</code> (transpose the keys) and{" "}
+          <code>weights @ V</code> (no transpose) without a separate
+          implementation.
         </p>
-        <TiledMatmul />
+        <CodeBlock path="picochem/kernels/cuda/batched_matmul.cu" lang="cuda" code={lines(RAW.batchedMatmul, 8, 41)} />
+      </Section>
+
+      <Section id="p5-6" title="Reductions">
         <p>
-          The same backward matmuls are two transposed variants of this kernel.
-          Softmax, LayerNorm, and cross entropy are reduction kernels: one block
-          per row, 256 threads, a tree reduction in shared memory to get the row
-          max and sum. The embedding gradient is a scatter with{" "}
-          <code>atomicAdd</code>. Here is the cross-entropy forward, a clean
-          example of the reduction pattern:
+          Softmax, layer norm, and cross entropy all need a per-row reduction: a
+          sum or a max over the feature axis. These share one shape. Launch one
+          block per row with 256 threads; each thread strides over the row
+          accumulating a partial result, the partials go into shared memory, and a
+          tree reduction halves the active threads each step until thread 0 holds
+          the total. Softmax does this twice, once for the row max (for numerical
+          stability) and once for the exponential sum, the standard log-sum-exp:
         </p>
-        <CodeBlock path="picochem/kernels/cuda/cross_entropy.cu" lang="cuda" code={lines(RAW.crossEntropy, 9, 38)} />
-        <CodeBlock path="picochem/kernels/cuda/matmul_backward.cu · transposed backward matmul" lang="cuda" code={lines(RAW.matmulBackward, 7, 31)} />
-        <Aside label="honesty: exploratory kernels" warn>
-          The repository also contains a Tensor Core kernel (<code>tensor_core.cu</code>,
-          using the WMMA API and fp16) and a cuBLAS wrapper (<code>matmul_cublas.cu</code>).
-          These were exploratory benchmarking experiments and are not part of the
-          shipped training path, which uses the hand-written fp32 tiled kernels
-          above.
-        </Aside>
+        <CodeBlock path="picochem/kernels/cuda/softmax.cu" lang="cuda" code={lines(RAW.softmax, 11, 51)} />
+        <p>
+          Layer norm is the same kernel with two reductions, mean then variance,
+          before it normalizes (you saw it in Part III). Cross entropy reduces for
+          the row max and the log-sum-exp, then thread 0 reads off the negative log
+          probability of the target. The tree reduction is the reusable primitive
+          underneath all three; writing it once by hand is most of the work.
+        </p>
+      </Section>
+
+      <Section id="p5-7" title="Elementwise kernels">
+        <p>
+          The cheap kernels are the elementwise ones: one thread per element, a
+          bounds check, and a single arithmetic expression. GeLU applies its tanh
+          approximation, <code>vector_add</code> is the residual connection, scale
+          multiplies by a constant, and Adam does the in-place parameter update.
+          The only subtlety is the bias: the forward broadcasts a length-N vector
+          across all rows, and its gradient is a column sum, which is one thread
+          per column walking down the rows.
+        </p>
+        <CodeBlock path="picochem/kernels/cuda/bias.cu" lang="cuda" code={lines(RAW.bias, 9, 30)} />
+        <p>
+          The Adam kernel (shown in Part IV) is also elementwise: one thread per
+          parameter does the momentum and variance update and the bias-corrected
+          step in place, so the weights never leave the device. None of these
+          kernels touch shared memory; they are pure bandwidth, and they are fast
+          because the data is already resident on the GPU.
+        </p>
+      </Section>
+
+      <Section id="p5-8" title="Embedding scatter">
+        <p>
+          The embedding gradient is the one kernel that needs atomics. The forward
+          is a gather (look up a row per token); the backward scatters each token's
+          gradient back to its row of the table. The catch is collisions: in a
+          batch, many positions map to the same token, so several threads add to
+          the same table row at once. A plain <code>+=</code> would race and lose
+          updates, so the kernel uses <code>atomicAdd</code>, which serializes the
+          conflicting adds so none are dropped.
+        </p>
+        <CodeBlock path="picochem/kernels/cuda/embedding.cu" lang="cuda" code={lines(RAW.embeddingCu, 8, 17)} />
+        <p>
+          In the shipped trainer this scatter actually runs on the host, because
+          the embedding tables stay on the CPU (the reason the GPU sits at 35 to
+          40% utilization, covered in the last section and in Part IX). The kernel
+          exists, is tested, and is the device-side version of the same operation.
+        </p>
+      </Section>
+
+      <Section id="p5-9" title="Head transpose">
+        <p>
+          Multi-head attention needs the data laid out two ways: the projections
+          produce <code>(B, S, H, Dh)</code>, but the batched attention matmul
+          wants the head axis next to the batch axis, <code>(B, H, S, Dh)</code>,
+          so each (batch, head) is a contiguous matrix. The split-heads and
+          merge-heads kernels do that reshuffle. They are pure index arithmetic:
+          one thread per element decodes its multi-dimensional index, recomputes
+          the source offset under the other layout, and copies one value.
+        </p>
+        <CodeBlock path="picochem/kernels/cuda/transpose.cu" lang="cuda" code={lines(RAW.transpose, 9, 32)} />
+        <p>
+          There is no math here, just a permutation, but doing it as its own kernel
+          keeps the attention matmul reading contiguous memory, which matters more
+          for speed than the copy costs.
+        </p>
+      </Section>
+
+      <Section id="p5-10" title="Binding to Python">
+        <p>
+          The kernels reach Python through pybind11. The core type is{" "}
+          <code>DeviceTensor</code>, a thin RAII wrapper around a GPU buffer: its
+          constructor <code>cudaMalloc</code>s and uploads a NumPy array, its
+          destructor <code>cudaFree</code>s, and it is non-copyable so ownership is
+          unambiguous. A <code>.numpy()</code> method downloads back to the host
+          when you actually want to look at a result.
+        </p>
+        <CodeBlock path="picochem/kernels/cuda/bindings.cpp" lang="cpp" code={lines(RAW.bindings, 38, 65)} />
+        <p>
+          The module exposes two families of functions. The copy-based ones (used
+          for the standalone benchmarks) take NumPy arrays, upload, run, and
+          download. The device-resident <code>dt_</code> family takes and returns{" "}
+          <code>DeviceTensor</code> handles, so a whole training step chains
+          kernels without a single host round trip. Returns use{" "}
+          <code>take_ownership</code> so Python's garbage collector frees the GPU
+          memory.
+        </p>
+        <CodeBlock path="picochem/kernels/cuda/bindings.cpp · the module" lang="cpp" code={lines(RAW.bindings, 539, 552)} />
       </Section>
 
       <Section id="p5-3" title="Device-resident training">
@@ -119,7 +280,7 @@ export function PartV() {
           The win is keeping the whole transformer stack on the GPU across both
           the forward and backward pass, so a training step does not copy weights
           back and forth every iteration. Only the batch goes in and the loss and
-          gradients come out. That is about 60× faster per step than the NumPy
+          gradients come out. That is about 60x faster per step than the NumPy
           reference.
         </p>
         <Figure caption="2,640 ms in NumPy down to 44 ms device-resident, on the benchmark configuration.">
