@@ -64,11 +64,18 @@ export const TOC: TocPart[] = [
   },
   {
     part: "Part V",
-    title: "GPU and CUDA",
+    title: "GPU and CUDA Kernels",
     items: [
       { id: "p5-1", label: "1. What a GPU is" },
-      { id: "p5-2", label: "2. The kernels" },
-      { id: "p5-3", label: "3. Device-resident training" },
+      { id: "p5-2", label: "2. The tiled matmul" },
+      { id: "p5-4", label: "3. Backward matmuls" },
+      { id: "p5-5", label: "4. Batched matmul" },
+      { id: "p5-6", label: "5. Reductions" },
+      { id: "p5-7", label: "6. Elementwise kernels" },
+      { id: "p5-8", label: "7. Embedding scatter" },
+      { id: "p5-9", label: "8. Head transpose" },
+      { id: "p5-10", label: "9. Binding to Python" },
+      { id: "p5-3", label: "10. Device-resident training" },
     ],
   },
   {

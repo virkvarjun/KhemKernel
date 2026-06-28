@@ -19,6 +19,7 @@ import checkpointing from "../../../../picochem/checkpointing.py?raw";
 import deviceLayers from "../../../../picochem/device_layers.py?raw";
 import evaluate from "../../../../picochem/evaluate.py?raw";
 
+import matmulNaive from "../../../../picochem/kernels/cuda/matmul_naive.cu?raw";
 import matmulTiled from "../../../../picochem/kernels/cuda/matmul_tiled.cu?raw";
 import matmulBackward from "../../../../picochem/kernels/cuda/matmul_backward.cu?raw";
 import batchedMatmul from "../../../../picochem/kernels/cuda/batched_matmul.cu?raw";
@@ -56,6 +57,7 @@ export const RAW = {
   checkpointing,
   deviceLayers,
   evaluate,
+  matmulNaive,
   matmulTiled,
   matmulBackward,
   batchedMatmul,
