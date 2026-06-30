@@ -1,0 +1,5 @@
+# manim render cache + scratch
+media/
+__pycache__/
+_*.py
+*.log
